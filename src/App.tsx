@@ -12,6 +12,8 @@ import { TerrariumScene } from './three/TerrariumScene';
 import { INITIAL_SPECIMENS } from './data/initialFlora';
 import { INITIAL_CREATURES } from './data/initialCreatures';
 import { PlantSpecimen, CreatureSpecimen, TerrariumConfig } from './types/terrarium';
+import { terrariumAudio } from './audio/proceduralAudio';
+import { Camera, Check } from 'lucide-react';
 
 export default function App() {
   const sceneRef = useRef<TerrariumScene | null>(null);
@@ -21,6 +23,10 @@ export default function App() {
 
   const [selectedPlant, setSelectedPlant] = useState<PlantSpecimen | null>(null);
   const [selectedCreature, setSelectedCreature] = useState<CreatureSpecimen | null>(null);
+
+  // Snapshot visual feedback
+  const [isShutterFlashing, setIsShutterFlashing] = useState(false);
+  const [snapshotToast, setSnapshotToast] = useState<string | null>(null);
 
   const [config, setConfig] = useState<TerrariumConfig>({
     timeHours: 12.0, // High noon initially
@@ -32,7 +38,7 @@ export default function App() {
     cameraPreset: 'default',
     autoRotate: false,
     vesselStyle: 'hexagonal',
-    soundEnabled: true, // Enable audio by default so users immediately enjoy ambient soundscapes
+    soundEnabled: true,
     soundVolume: 0.5,
     selectedPlantId: null,
     selectedCreatureId: null,
@@ -115,6 +121,43 @@ export default function App() {
     handleUpdateConfig({ seed: newSeed });
   }, [handleUpdateConfig]);
 
+  // Snapshot Capture logic
+  const handleCaptureSnapshot = useCallback(() => {
+    if (!sceneRef.current) return;
+
+    // 1. Play realistic mechanical camera shutter sound
+    terrariumAudio.playShutterSound();
+
+    // 2. Visual camera shutter flash
+    setIsShutterFlashing(true);
+    setTimeout(() => {
+      setIsShutterFlashing(false);
+    }, 180);
+
+    // 3. Render and capture full canvas data URL
+    const dataUrl = sceneRef.current.captureSnapshot();
+
+    // 4. Generate formatted filename with timestamp
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const timeStamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const fileName = `botanica-terrarium-${timeStamp}.png`;
+
+    // 5. Trigger download via client link
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // 6. Toast feedback
+    setSnapshotToast(fileName);
+    setTimeout(() => {
+      setSnapshotToast(null);
+    }, 3800);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -136,6 +179,34 @@ export default function App() {
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-neutral-950 font-sans select-none">
+      {/* Visual Camera Shutter Flash Overlay */}
+      {isShutterFlashing && (
+        <div
+          className="fixed inset-0 bg-white/45 pointer-events-none z-50 transition-opacity duration-150 animate-out fade-out"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Snapshot Toast Notification */}
+      {snapshotToast && (
+        <div
+          className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-neutral-900/95 text-neutral-100 border border-sky-500/80 px-4 py-2 rounded-xl shadow-2xl transition-all duration-300"
+          role="status"
+        >
+          <div className="p-1 rounded-full bg-sky-500/20 text-sky-400">
+            <Check className="w-4 h-4" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-neutral-100 flex items-center gap-1.5">
+              Snapshot Captured & Downloaded
+            </span>
+            <span className="text-[10px] font-mono text-neutral-400">
+              {snapshotToast}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* 3D Terrarium Canvas Container */}
       <TerrariumCanvas
         config={config}
@@ -181,6 +252,7 @@ export default function App() {
         onSelectCreature={handleSelectCreature}
         onHydratePlant={handleHydratePlant}
         onRegenerateFlora={handleRegenerateFlora}
+        onCaptureSnapshot={handleCaptureSnapshot}
       />
     </main>
   );

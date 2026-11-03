@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Play,
   Wind,
+  Download,
 } from 'lucide-react';
 import { terrariumAudio } from '../audio/proceduralAudio';
 
@@ -38,6 +39,7 @@ interface ControlOverlayProps {
   onSelectCreature: (creature: CreatureSpecimen | null) => void;
   onHydratePlant: (plantId: string) => void;
   onRegenerateFlora: () => void;
+  onCaptureSnapshot: () => void;
 }
 
 type TabType = 'time' | 'weather' | 'flora' | 'camera' | 'audio';
@@ -51,21 +53,24 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   onSelectCreature,
   onHydratePlant,
   onRegenerateFlora,
+  onCaptureSnapshot,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('time');
 
-  // Toggle collapse with 'H' key
+  // Toggle collapse with 'H' key & snapshot with 'S' key
   React.useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === 'h' || e.key === 'H') {
         setIsCollapsed((prev) => !prev);
+      } else if (e.key === 's' || e.key === 'S') {
+        onCaptureSnapshot();
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+  }, [onCaptureSnapshot]);
 
   // Format hours into 12-hour/24-hour readable string
   const formatTime = (hours: number) => {
@@ -94,7 +99,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
 
   return (
     <>
-      {/* Top-Left Minimal Title / Spec Badge */}
+      {/* Top-Left Minimal Title / Spec Badge & Snapshot Trigger */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-1.5 pointer-events-auto">
         <div className="flex items-center gap-2.5 bg-neutral-900/90 border border-neutral-700/80 px-3 py-2 rounded-xl shadow-lg text-neutral-100">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
@@ -117,11 +122,20 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               </span>
             </p>
           </div>
+
+          <button
+            onClick={onCaptureSnapshot}
+            className="ml-2 flex items-center gap-1.5 bg-sky-600/90 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer shadow border border-sky-400/30"
+            title="Capture 3D render snapshot as PNG (Key: S)"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Snapshot</span>
+          </button>
         </div>
 
         {/* Quick hint banner */}
-        <div className="text-[11px] text-neutral-400 bg-neutral-950/80 border border-neutral-800 px-3 py-1.5 rounded-lg max-w-xs shadow">
-          <span>Click any plant or creature to inspect. Press &apos;H&apos; to toggle controls dock.</span>
+        <div className="text-[11px] text-neutral-400 bg-neutral-950/80 border border-neutral-800 px-3 py-1.5 rounded-lg max-w-sm shadow">
+          <span>Click flora or fauna to inspect. Press <strong>&apos;S&apos;</strong> to save snapshot, <strong>&apos;H&apos;</strong> to hide dock.</span>
         </div>
       </div>
 
@@ -222,8 +236,17 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               </button>
             </div>
 
-            {/* Quick action: Auto-rotate toggle */}
-            <div className="flex items-center gap-2 pb-1.5">
+            {/* Quick actions: Auto-rotate & Snapshot */}
+            <div className="flex items-center gap-1.5 pb-1.5">
+              <button
+                onClick={onCaptureSnapshot}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700 hover:text-white transition-colors cursor-pointer"
+                title="Capture 3D render snapshot as PNG (Shortcut: S)"
+              >
+                <Camera className="w-3 h-3 text-sky-400" />
+                <span>Snapshot</span>
+              </button>
+
               <button
                 onClick={() => onUpdateConfig({ autoRotate: !config.autoRotate })}
                 className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border transition-colors cursor-pointer ${
@@ -486,6 +509,34 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                       <span className="text-[10px] text-neutral-400 mt-0.5">{cam.desc}</span>
                     </button>
                   ))}
+                </div>
+
+                {/* High-Resolution Snapshot Export Card */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-neutral-800 bg-neutral-950/70 pt-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-sky-950/80 border border-sky-800/80 text-sky-400 shrink-0">
+                      <Camera className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-100 flex items-center gap-2">
+                        Lossless Canvas Snapshot
+                        <span className="text-[10px] font-mono text-neutral-400 font-normal px-1.5 py-0.2 bg-neutral-800 rounded">
+                          PNG
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">
+                        Captures the current viewport lighting, procedural flora, and microclimate directly as a downloadable PNG image.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={onCaptureSnapshot}
+                    className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer shadow shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Snapshot</span>
+                  </button>
                 </div>
               </div>
             )}

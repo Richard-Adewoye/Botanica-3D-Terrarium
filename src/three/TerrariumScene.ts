@@ -103,6 +103,7 @@ export class TerrariumScene {
       antialias: !this.isSoftwareGl,
       powerPreference: 'high-performance',
       alpha: false,
+      preserveDrawingBuffer: true,
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -669,6 +670,15 @@ export class TerrariumScene {
 
   public getTimeHours(): number {
     return this.currentConfig.timeHours;
+  }
+
+  /**
+   * Captures the current 3D canvas render as a PNG data URL.
+   * Renders immediately before toDataURL to guarantee a clean, non-cleared frame.
+   */
+  public captureSnapshot(): string {
+    this.renderer.render(this.scene, this.camera);
+    return this.renderer.domElement.toDataURL('image/png');
   }
 
   public dispose() {
