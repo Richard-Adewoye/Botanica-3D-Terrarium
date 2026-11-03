@@ -21,6 +21,18 @@ export interface PlantSpecimen {
   glowColor?: string;
 }
 
+export interface CreatureSpecimen {
+  id: string;
+  name: string;
+  scientificName: string;
+  type: 'beetle' | 'snail';
+  position: [number, number, number];
+  rotationY: number;
+  scale: number;
+  activityLevel: number; // 0 to 100
+  description: string;
+}
+
 export interface TerrariumConfig {
   timeHours: number; // 0 to 24 (e.g. 12 = noon)
   autoCycleTime: boolean;
@@ -34,5 +46,7 @@ export interface TerrariumConfig {
   soundEnabled: boolean;
   soundVolume: number;
   selectedPlantId: string | null;
+  selectedCreatureId: string | null;
+  showCreatures: boolean;
   seed: number;
 }

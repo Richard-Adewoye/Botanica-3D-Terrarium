@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { TerrariumScene } from '../three/TerrariumScene';
-import { PlantSpecimen, TerrariumConfig } from '../types/terrarium';
+import { PlantSpecimen, CreatureSpecimen, TerrariumConfig } from '../types/terrarium';
 
 interface TerrariumCanvasProps {
   config: TerrariumConfig;
   specimens: PlantSpecimen[];
+  creatures: CreatureSpecimen[];
   onSelectPlant: (specimen: PlantSpecimen | null) => void;
+  onSelectCreature: (creature: CreatureSpecimen | null) => void;
   onSceneReady?: (scene: TerrariumScene) => void;
   onTimeUpdate?: (timeHours: number) => void;
 }
@@ -13,7 +15,9 @@ interface TerrariumCanvasProps {
 export const TerrariumCanvas: React.FC<TerrariumCanvasProps> = ({
   config,
   specimens,
+  creatures,
   onSelectPlant,
+  onSelectCreature,
   onSceneReady,
   onTimeUpdate,
 }) => {
@@ -28,7 +32,9 @@ export const TerrariumCanvas: React.FC<TerrariumCanvasProps> = ({
       mountRef.current,
       config,
       specimens,
-      (selected) => onSelectPlant(selected)
+      creatures,
+      (selected) => onSelectPlant(selected),
+      (selectedCreature) => onSelectCreature(selectedCreature)
     );
 
     sceneRef.current = scene;
@@ -61,6 +67,13 @@ export const TerrariumCanvas: React.FC<TerrariumCanvasProps> = ({
       sceneRef.current.setSpecimens(specimens);
     }
   }, [specimens]);
+
+  // Sync creatures changes
+  useEffect(() => {
+    if (sceneRef.current) {
+      sceneRef.current.setCreatures(creatures);
+    }
+  }, [creatures]);
 
   return (
     <div

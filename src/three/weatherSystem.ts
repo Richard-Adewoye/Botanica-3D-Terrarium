@@ -29,6 +29,7 @@ export class WeatherSystem {
   private lightningLight: THREE.PointLight;
   private lightningTimer = 0;
   private isFlashing = false;
+  public onLightningFlash?: () => void;
 
   private currentWeather: WeatherType = 'clear';
 
@@ -238,6 +239,7 @@ export class WeatherSystem {
           this.lightningLight.intensity = 4.5 + Math.random() * 3.5;
           this.isFlashing = true;
           this.lightningTimer = 0.08 + Math.random() * 0.06;
+          this.onLightningFlash?.();
         } else {
           // Reset flash
           this.lightningLight.intensity = 0;

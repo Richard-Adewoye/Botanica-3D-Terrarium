@@ -7,15 +7,20 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TerrariumCanvas } from './components/TerrariumCanvas';
 import { ControlOverlay } from './components/ControlOverlay';
 import { PlantInspectorModal } from './components/PlantInspectorModal';
+import { CreatureInspectorModal } from './components/CreatureInspectorModal';
 import { TerrariumScene } from './three/TerrariumScene';
 import { INITIAL_SPECIMENS } from './data/initialFlora';
-import { PlantSpecimen, TerrariumConfig } from './types/terrarium';
+import { INITIAL_CREATURES } from './data/initialCreatures';
+import { PlantSpecimen, CreatureSpecimen, TerrariumConfig } from './types/terrarium';
 
 export default function App() {
   const sceneRef = useRef<TerrariumScene | null>(null);
 
   const [specimens, setSpecimens] = useState<PlantSpecimen[]>(INITIAL_SPECIMENS);
+  const [creatures, setCreatures] = useState<CreatureSpecimen[]>(INITIAL_CREATURES);
+
   const [selectedPlant, setSelectedPlant] = useState<PlantSpecimen | null>(null);
+  const [selectedCreature, setSelectedCreature] = useState<CreatureSpecimen | null>(null);
 
   const [config, setConfig] = useState<TerrariumConfig>({
     timeHours: 12.0, // High noon initially
@@ -27,9 +32,11 @@ export default function App() {
     cameraPreset: 'default',
     autoRotate: false,
     vesselStyle: 'hexagonal',
-    soundEnabled: false,
-    soundVolume: 0.45,
+    soundEnabled: true, // Enable audio by default so users immediately enjoy ambient soundscapes
+    soundVolume: 0.5,
     selectedPlantId: null,
+    selectedCreatureId: null,
+    showCreatures: true,
     seed: 42,
   });
 
@@ -39,7 +46,24 @@ export default function App() {
 
   const handleSelectPlant = useCallback((specimen: PlantSpecimen | null) => {
     setSelectedPlant(specimen);
-    handleUpdateConfig({ selectedPlantId: specimen ? specimen.id : null });
+    if (specimen) {
+      setSelectedCreature(null);
+    }
+    handleUpdateConfig({
+      selectedPlantId: specimen ? specimen.id : null,
+      selectedCreatureId: null,
+    });
+  }, [handleUpdateConfig]);
+
+  const handleSelectCreature = useCallback((creature: CreatureSpecimen | null) => {
+    setSelectedCreature(creature);
+    if (creature) {
+      setSelectedPlant(null);
+    }
+    handleUpdateConfig({
+      selectedCreatureId: creature ? creature.id : null,
+      selectedPlantId: null,
+    });
   }, [handleUpdateConfig]);
 
   const handleHydratePlant = useCallback((plantId: string) => {
@@ -58,6 +82,23 @@ export default function App() {
   const handleFocusPlant = useCallback((specimen: PlantSpecimen) => {
     if (sceneRef.current) {
       sceneRef.current.focusOnPlant(specimen);
+    }
+  }, []);
+
+  const handleInteractCreature = useCallback((creatureId: string) => {
+    if (sceneRef.current) {
+      sceneRef.current.petCreature(creatureId);
+    }
+    setCreatures((prev) =>
+      prev.map((c) =>
+        c.id === creatureId ? { ...c, activityLevel: Math.min(100, c.activityLevel + 15) } : c
+      )
+    );
+  }, []);
+
+  const handleFocusCreature = useCallback((creature: CreatureSpecimen) => {
+    if (sceneRef.current) {
+      sceneRef.current.focusOnCreature(creature);
     }
   }, []);
 
@@ -81,7 +122,8 @@ export default function App() {
 
       if (e.key === 'Escape') {
         setSelectedPlant(null);
-        handleUpdateConfig({ selectedPlantId: null });
+        setSelectedCreature(null);
+        handleUpdateConfig({ selectedPlantId: null, selectedCreatureId: null });
       } else if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         setConfig((prev) => ({ ...prev, autoRotate: !prev.autoRotate }));
@@ -98,7 +140,9 @@ export default function App() {
       <TerrariumCanvas
         config={config}
         specimens={specimens}
+        creatures={creatures}
         onSelectPlant={handleSelectPlant}
+        onSelectCreature={handleSelectCreature}
         onSceneReady={(scene) => {
           sceneRef.current = scene;
         }}
@@ -117,12 +161,24 @@ export default function App() {
         />
       )}
 
+      {/* Selected Creature Detail Inspector Card */}
+      {selectedCreature && (
+        <CreatureInspectorModal
+          creature={selectedCreature}
+          onClose={() => handleSelectCreature(null)}
+          onInteract={handleInteractCreature}
+          onFocus={handleFocusCreature}
+        />
+      )}
+
       {/* Sleek Collapsible Bottom Dock */}
       <ControlOverlay
         config={config}
         onUpdateConfig={handleUpdateConfig}
         specimens={specimens}
+        creatures={creatures}
         onSelectPlant={handleSelectPlant}
+        onSelectCreature={handleSelectCreature}
         onHydratePlant={handleHydratePlant}
         onRegenerateFlora={handleRegenerateFlora}
       />

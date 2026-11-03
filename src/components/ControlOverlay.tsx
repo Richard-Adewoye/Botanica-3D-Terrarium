@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import {
   TerrariumConfig,
   PlantSpecimen,
+  CreatureSpecimen,
   WeatherType,
   CameraPreset,
-  VesselStyle,
 } from '../types/terrarium';
 import {
   Sun,
@@ -22,17 +22,20 @@ import {
   ChevronUp,
   Droplets,
   Flower2,
-  Maximize2,
-  Sliders,
-  Wind,
+  Bug,
   RefreshCw,
+  Play,
+  Wind,
 } from 'lucide-react';
+import { terrariumAudio } from '../audio/proceduralAudio';
 
 interface ControlOverlayProps {
   config: TerrariumConfig;
   onUpdateConfig: (newConfig: Partial<TerrariumConfig>) => void;
   specimens: PlantSpecimen[];
+  creatures: CreatureSpecimen[];
   onSelectPlant: (specimen: PlantSpecimen | null) => void;
+  onSelectCreature: (creature: CreatureSpecimen | null) => void;
   onHydratePlant: (plantId: string) => void;
   onRegenerateFlora: () => void;
 }
@@ -43,7 +46,9 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   config,
   onUpdateConfig,
   specimens,
+  creatures,
   onSelectPlant,
+  onSelectCreature,
   onHydratePlant,
   onRegenerateFlora,
 }) => {
@@ -82,6 +87,11 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
     spores: <Sparkles className="w-4 h-4 text-emerald-400" />,
   };
 
+  // Compute active sound dynamics
+  const isDay = config.timeHours >= 6.5 && config.timeHours <= 19.0;
+  const isNight = config.timeHours > 19.5 || config.timeHours < 5.5;
+  const isRaining = config.weather === 'rain' || config.weather === 'storm';
+
   return (
     <>
       {/* Top-Left Minimal Title / Spec Badge */}
@@ -92,7 +102,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             <h1 className="text-sm font-semibold tracking-wide flex items-center gap-2">
               Botanica 3D Terrarium
               <span className="text-[10px] font-mono text-neutral-400 font-normal px-1.5 py-0.5 bg-neutral-800 rounded">
-                v1.0
+                v1.1 Dynamic Audio
               </span>
             </h1>
             <p className="text-[11px] text-neutral-400 flex items-center gap-2 mt-0.5">
@@ -101,19 +111,23 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               <span className="capitalize">{config.weather}</span>
               <span>•</span>
               <span>{config.humidity}% Humidity</span>
+              <span>•</span>
+              <span className={config.soundEnabled ? 'text-emerald-400' : 'text-neutral-500'}>
+                {config.soundEnabled ? 'Audio Live' : 'Muted'}
+              </span>
             </p>
           </div>
         </div>
 
         {/* Quick hint banner */}
         <div className="text-[11px] text-neutral-400 bg-neutral-950/80 border border-neutral-800 px-3 py-1.5 rounded-lg max-w-xs shadow">
-          <span>Click any plant to inspect & hydrate. Drag to orbit, scroll to zoom.</span>
+          <span>Click any plant or creature to inspect. Press &apos;H&apos; to toggle controls dock.</span>
         </div>
       </div>
 
       {/* Consolidated Bottom Dock */}
       <div
-        className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-20 w-[94vw] max-w-[900px] transition-transform duration-300 ease-out select-none ${
+        className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-20 w-[94vw] max-w-[940px] transition-transform duration-300 ease-out select-none ${
           isCollapsed ? 'translate-y-[calc(100%-38px)]' : 'translate-y-0'
         }`}
       >
@@ -138,7 +152,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           </button>
         </div>
 
-        {/* Dock Main Window (Solid surface, no backdrop-filter) */}
+        {/* Dock Main Window */}
         <div className="bg-neutral-900/95 text-neutral-100 border border-neutral-700/80 rounded-2xl shadow-2xl overflow-hidden">
           {/* Navigation Tabs */}
           <div className="flex items-center justify-between border-b border-neutral-800/90 px-3 pt-2 bg-neutral-950/70 overflow-x-auto gap-1">
@@ -176,7 +190,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                 }`}
               >
                 <Flower2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Flora & Vessel</span>
+                <span>Flora & Fauna</span>
               </button>
 
               <button
@@ -204,7 +218,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                 ) : (
                   <VolumeX className="w-3.5 h-3.5 text-neutral-400" />
                 )}
-                <span>Audio</span>
+                <span>Ambient Audio</span>
               </button>
             </div>
 
@@ -226,7 +240,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           </div>
 
           {/* Tab Panel Content */}
-          <div className="p-4 bg-neutral-900 min-h-[105px] flex flex-col justify-center">
+          <div className="p-4 bg-neutral-900 min-h-[115px] flex flex-col justify-center">
             {/* 1. Time & Lighting Tab */}
             {activeTab === 'time' && (
               <div className="space-y-3">
@@ -365,7 +379,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               </div>
             )}
 
-            {/* 3. Flora & Vessel Tab */}
+            {/* 3. Flora & Fauna Tab */}
             {activeTab === 'flora' && (
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -387,35 +401,24 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                     </span>
                   </div>
 
-                  {/* Vessel Style */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-neutral-400">Vessel:</span>
-                    <button
-                      onClick={() => onUpdateConfig({ vesselStyle: 'hexagonal' })}
-                      className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
-                        config.vesselStyle === 'hexagonal'
-                          ? 'bg-neutral-800 border-emerald-500 text-white font-medium'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:bg-neutral-800'
-                      }`}
-                    >
-                      Wardian Case
-                    </button>
-                    <button
-                      onClick={() => onUpdateConfig({ vesselStyle: 'bell_jar' })}
-                      className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
-                        config.vesselStyle === 'bell_jar'
-                          ? 'bg-neutral-800 border-emerald-500 text-white font-medium'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:bg-neutral-800'
-                      }`}
-                    >
-                      Bell Jar
-                    </button>
+                  {/* Micro-Fauna Toggle */}
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-xs text-neutral-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={config.showCreatures}
+                        onChange={(e) => onUpdateConfig({ showCreatures: e.target.checked })}
+                        className="rounded border-neutral-700 bg-neutral-800 text-amber-500 focus:ring-0 cursor-pointer"
+                      />
+                      <Bug className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Introduced Animals</span>
+                    </label>
                   </div>
                 </div>
 
-                {/* Plant Selector list */}
+                {/* Plant & Creature Selector list */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                  <span className="text-xs text-neutral-400 shrink-0 mr-1">Specimens:</span>
+                  <span className="text-xs text-neutral-400 shrink-0 mr-1">Flora:</span>
                   {specimens.map((s) => (
                     <button
                       key={s.id}
@@ -427,13 +430,29 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                     </button>
                   ))}
 
+                  {config.showCreatures && (
+                    <>
+                      <span className="text-xs text-neutral-400 shrink-0 ml-2 mr-1">Fauna:</span>
+                      {creatures.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => onSelectCreature(c)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800/80 rounded-md text-amber-200 transition-colors shrink-0 cursor-pointer"
+                        >
+                          <Bug className="w-3 h-3 text-amber-400" />
+                          <span>{c.name.split(' ')[0]} {c.name.split(' ')[1] || ''}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
                   <button
                     onClick={onRegenerateFlora}
                     className="flex items-center gap-1 px-2.5 py-1 text-xs bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 rounded-md text-emerald-300 transition-colors shrink-0 cursor-pointer ml-auto"
                     title="Regenerate random seed and flora placements"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    <span>Re-Seed Flora</span>
+                    <span>Re-Seed</span>
                   </button>
                 </div>
               </div>
@@ -482,7 +501,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                       <VolumeX className="w-4 h-4 text-neutral-400" />
                     )}
                     <span className="text-xs font-medium text-neutral-200">
-                      Real-Time Web Audio Synthesizer:
+                      Real-Time Dynamic Audio Engine:
                     </span>
                     <span className="text-[11px] text-neutral-400 font-mono">
                       {config.soundEnabled ? 'Synthesizing live audio' : 'Muted'}
@@ -501,26 +520,81 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                   </button>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-neutral-400 w-24 shrink-0">Master Volume:</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    disabled={!config.soundEnabled}
-                    value={config.soundVolume}
-                    onChange={(e) => onUpdateConfig({ soundVolume: parseFloat(e.target.value) })}
-                    className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 disabled:opacity-40"
-                  />
-                  <span className="text-xs font-mono text-neutral-300 w-10 text-right">
-                    {Math.round(config.soundVolume * 100)}%
-                  </span>
+                {/* Volume slider & Live Status badges */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
+                  <div className="flex items-center gap-3 flex-1 max-w-sm">
+                    <span className="text-xs text-neutral-400 w-24 shrink-0">Master Volume:</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      disabled={!config.soundEnabled}
+                      value={config.soundVolume}
+                      onChange={(e) => onUpdateConfig({ soundVolume: parseFloat(e.target.value) })}
+                      className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 disabled:opacity-40"
+                    />
+                    <span className="text-xs font-mono text-neutral-300 w-10 text-right">
+                      {Math.round(config.soundVolume * 100)}%
+                    </span>
+                  </div>
+
+                  {/* Active sound indicators */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                    <span
+                      className={`px-2 py-0.5 rounded border ${
+                        isDay && config.weather !== 'storm'
+                          ? 'bg-amber-950/80 border-amber-700 text-amber-300'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-500'
+                      }`}
+                    >
+                      Day Insects {isDay && config.weather !== 'storm' ? '• Active' : '• Idle'}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded border ${
+                        isNight && config.weather !== 'storm'
+                          ? 'bg-indigo-950/80 border-indigo-700 text-indigo-300'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-500'
+                      }`}
+                    >
+                      Night Crickets {isNight && config.weather !== 'storm' ? '• Active' : '• Idle'}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded border ${
+                        isRaining
+                          ? 'bg-sky-950/80 border-sky-700 text-sky-300'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-500'
+                      }`}
+                    >
+                      Rain Patter {isRaining ? '• Active' : '• Idle'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded border bg-emerald-950/80 border-emerald-800 text-emerald-300">
+                      Flora Rustle • Periodic
+                    </span>
+                  </div>
                 </div>
 
-                <p className="text-[11px] text-neutral-400 leading-relaxed">
-                  Synthesizes dynamic wind, rainfall filters, nocturnal cricket oscillations, and water droplet sweeps in real time using browser Web Audio oscillators and pink noise — 0 external audio files downloaded.
-                </p>
+                {/* Direct Sound Sample Triggers */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-neutral-800/80">
+                  <span className="text-[11px] text-neutral-400 mr-1">Preview Synthesized Sound:</span>
+                  {[
+                    { label: 'Rain Patter', icon: <Droplets className="w-3 h-3 text-sky-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playWaterDroplet(); } },
+                    { label: 'Day Cicada', icon: <Sun className="w-3 h-3 text-amber-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playDayGrasshopperChirp(); } },
+                    { label: 'Night Cricket', icon: <Moon className="w-3 h-3 text-indigo-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playCricketStridulation(); } },
+                    { label: 'Leaf Rustle', icon: <Wind className="w-3 h-3 text-emerald-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playFloraRustle(1.0); } },
+                    { label: 'Creature Crawl', icon: <Bug className="w-3 h-3 text-amber-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playCreatureMovement('beetle'); } },
+                    { label: 'Thunder', icon: <CloudLightning className="w-3 h-3 text-indigo-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playThunderRumble(); } },
+                  ].map((btn) => (
+                    <button
+                      key={btn.label}
+                      onClick={btn.action}
+                      className="flex items-center gap-1 px-2 py-1 text-[11px] bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-600 rounded border border-neutral-700 text-neutral-200 transition-colors cursor-pointer"
+                    >
+                      {btn.icon}
+                      <span>{btn.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

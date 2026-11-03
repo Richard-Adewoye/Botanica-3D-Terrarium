@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   PlantSpecimen,
+  CreatureSpecimen,
   TerrariumConfig,
   CameraPreset,
 } from '../types/terrarium';
@@ -20,6 +21,11 @@ import {
   createPitcherPlant,
   createMossMounds,
 } from './proceduralFlora';
+import {
+  createJewelBeetle,
+  createTerrariumSnail,
+  CreatureUserData,
+} from './proceduralCreatures';
 import { terrariumAudio } from '../audio/proceduralAudio';
 
 export class TerrariumScene {
@@ -36,11 +42,13 @@ export class TerrariumScene {
   private vessel: TerrariumVesselResult;
   private floraGroup: THREE.Group;
   private mossGroup: THREE.Group;
+  private creaturesGroup: THREE.Group;
 
   // Interactive Selection
   private raycaster: THREE.Raycaster;
   private mouse: THREE.Vector2;
   private onSelectPlantCallback?: (specimen: PlantSpecimen | null) => void;
+  private onSelectCreatureCallback?: (creature: CreatureSpecimen | null) => void;
 
   // Camera animation target
   private cameraTargetPos: THREE.Vector3;
@@ -56,20 +64,28 @@ export class TerrariumScene {
   private frameId: number = 0;
   private isDisposed: boolean = false;
 
-  // Active specimens
+  // Active specimens & creatures
   private specimens: PlantSpecimen[] = [];
+  private creatures: CreatureSpecimen[] = [];
   private currentConfig: TerrariumConfig;
+
+  // Movement timer for creature step sounds
+  private creatureSoundTimer: number = 0;
 
   constructor(
     container: HTMLElement,
     config: TerrariumConfig,
     initialSpecimens: PlantSpecimen[],
-    onSelectPlant?: (specimen: PlantSpecimen | null) => void
+    initialCreatures: CreatureSpecimen[],
+    onSelectPlant?: (specimen: PlantSpecimen | null) => void,
+    onSelectCreature?: (creature: CreatureSpecimen | null) => void
   ) {
     this.container = container;
     this.currentConfig = { ...config };
     this.specimens = [...initialSpecimens];
+    this.creatures = [...initialCreatures];
     this.onSelectPlantCallback = onSelectPlant;
+    this.onSelectCreatureCallback = onSelectCreature;
 
     // Detect software WebGL safely
     this.isSoftwareGl = (() => {
@@ -118,11 +134,10 @@ export class TerrariumScene {
     this.controls.enableDamping = !this.isSoftwareGl;
     this.controls.dampingFactor = 0.06;
     this.controls.target.copy(this.controlsTargetLook);
-    this.controls.minDistance = 1.2;
+    this.controls.minDistance = 1.1;
     this.controls.maxDistance = 8.5;
-    this.controls.maxPolarAngle = Math.PI / 2 + 0.05; // Prevent camera sinking under table
+    this.controls.maxPolarAngle = Math.PI / 2 + 0.05;
 
-    // Cancel transition if user takes manual control
     this.controls.addEventListener('start', () => {
       this.isCameraTransitioning = false;
     });
@@ -135,11 +150,11 @@ export class TerrariumScene {
     this.lighting = new LightingRig(this.scene, this.renderer, this.isSoftwareGl);
     this.lighting.updateTime(this.currentConfig.timeHours, this.currentConfig.weather);
 
-    // 5. Vessel & Terrarium Housing
+    // 5. Terrarium Vessel & Soil Strata
     this.vessel = createTerrariumVessel(this.currentConfig.vesselStyle, this.isSoftwareGl);
     this.scene.add(this.vessel.rootGroup);
 
-    // 6. Moss Carpet Mounds
+    // 6. Moss Mounds
     this.mossGroup = createMossMounds();
     this.mossGroup.position.y = 0.5;
     this.scene.add(this.mossGroup);
@@ -151,10 +166,27 @@ export class TerrariumScene {
     this.scene.add(this.floraGroup);
     this.rebuildFlora();
 
-    // 8. Weather & Particle Microclimate
+    // 8. Micro-Fauna Assembly
+    this.creaturesGroup = new THREE.Group();
+    this.creaturesGroup.name = 'all-creatures';
+    this.creaturesGroup.position.y = 0.5;
+    this.scene.add(this.creaturesGroup);
+    this.rebuildCreatures();
+
+    // 9. Weather Particle System with procedural sound linkage
     this.weather = new WeatherSystem();
     this.weather.setWeather(this.currentConfig.weather);
+    this.weather.onLightningFlash = () => {
+      terrariumAudio.playThunderRumble();
+    };
     this.scene.add(this.weather.group);
+
+    // Sync initial audio
+    terrariumAudio.updateAmbience(
+      this.currentConfig.weather,
+      this.currentConfig.timeHours,
+      this.currentConfig.humidity
+    );
 
     // Listeners
     window.addEventListener('resize', this.onResize);
@@ -165,7 +197,6 @@ export class TerrariumScene {
   }
 
   public rebuildFlora() {
-    // Clear old flora meshes
     while (this.floraGroup.children.length > 0) {
       const child = this.floraGroup.children[0];
       this.floraGroup.remove(child);
@@ -200,6 +231,26 @@ export class TerrariumScene {
     });
   }
 
+  public rebuildCreatures() {
+    while (this.creaturesGroup.children.length > 0) {
+      const child = this.creaturesGroup.children[0];
+      this.creaturesGroup.remove(child);
+      if ((child as THREE.Mesh).geometry) (child as THREE.Mesh).geometry.dispose();
+    }
+
+    if (!this.currentConfig.showCreatures) return;
+
+    this.creatures.forEach((creature) => {
+      let creatureMesh: THREE.Group;
+      if (creature.type === 'beetle') {
+        creatureMesh = createJewelBeetle(creature);
+      } else {
+        creatureMesh = createTerrariumSnail(creature);
+      }
+      this.creaturesGroup.add(creatureMesh);
+    });
+  }
+
   public updateConfig(newConfig: Partial<TerrariumConfig>) {
     const prev = { ...this.currentConfig };
     this.currentConfig = { ...this.currentConfig, ...newConfig };
@@ -216,16 +267,20 @@ export class TerrariumScene {
       terrariumAudio.updateAmbience(this.currentConfig.weather, this.currentConfig.timeHours, this.currentConfig.humidity);
     }
 
-    // Humidity change (drives condensation glass opacity)
+    // Humidity change
     if (newConfig.humidity !== undefined) {
       const condOpacity = Math.max(0, (newConfig.humidity - 40) / 60) * 0.75;
       this.vessel.condensationMaterial.opacity = condOpacity;
       terrariumAudio.updateAmbience(this.currentConfig.weather, this.currentConfig.timeHours, this.currentConfig.humidity);
     }
 
-    // Lid open slider (0 = closed at 0.18, 1 = exploded lifted at 2.2)
+    // Lid open slider
     if (newConfig.lidOpenAmount !== undefined) {
       this.targetLidY = 0.18 + newConfig.lidOpenAmount * 2.0;
+      // Opening the lid triggers a gentle air rush rustle
+      if (Math.abs(newConfig.lidOpenAmount - prev.lidOpenAmount) > 0.05) {
+        terrariumAudio.playFloraRustle(0.5);
+      }
     }
 
     // Auto rotate
@@ -239,16 +294,20 @@ export class TerrariumScene {
       this.applyCameraPreset(newConfig.cameraPreset);
     }
 
+    // Show/hide creatures
+    if (newConfig.showCreatures !== undefined && newConfig.showCreatures !== prev.showCreatures) {
+      this.rebuildCreatures();
+    }
+
     // Vessel Style change
     if (newConfig.vesselStyle && newConfig.vesselStyle !== prev.vesselStyle) {
       this.scene.remove(this.vessel.rootGroup);
       this.vessel = createTerrariumVessel(newConfig.vesselStyle, this.isSoftwareGl);
       this.scene.add(this.vessel.rootGroup);
-      // Re-apply lid position
       this.vessel.lidGroup.position.y = this.currentLidY;
     }
 
-    // Audio volume / toggle
+    // Audio controls
     if (newConfig.soundEnabled !== undefined) {
       terrariumAudio.setSoundEnabled(newConfig.soundEnabled);
     }
@@ -265,6 +324,11 @@ export class TerrariumScene {
   public setSpecimens(specimens: PlantSpecimen[]) {
     this.specimens = specimens;
     this.rebuildFlora();
+  }
+
+  public setCreatures(creatures: CreatureSpecimen[]) {
+    this.creatures = creatures;
+    this.rebuildCreatures();
   }
 
   public applyCameraPreset(preset: CameraPreset) {
@@ -304,6 +368,16 @@ export class TerrariumScene {
     this.cameraTargetPos.set(px + 0.8, py + 0.4, pz + 1.2);
   }
 
+  public focusOnCreature(creature: CreatureSpecimen) {
+    this.isCameraTransitioning = true;
+    const cx = creature.position[0];
+    const cy = creature.position[1] + 0.5;
+    const cz = creature.position[2];
+
+    this.controlsTargetLook.set(cx, cy + 0.05, cz);
+    this.cameraTargetPos.set(cx + 0.6, cy + 0.35, cz + 0.8);
+  }
+
   public hydratePlant(plantId: string) {
     const specimen = this.specimens.find((s) => s.id === plantId);
     if (!specimen) return;
@@ -331,6 +405,30 @@ export class TerrariumScene {
     this.onSelectPlantCallback?.(specimen);
   }
 
+  public petCreature(creatureId: string) {
+    const creature = this.creatures.find((c) => c.id === creatureId);
+    if (!creature) return;
+
+    const mesh = this.creaturesGroup.getObjectByName(`creature-${creatureId}`);
+    if (mesh) {
+      const origScale = mesh.scale.clone();
+      let step = 0;
+      const interval = setInterval(() => {
+        step++;
+        const s = 1 + Math.sin(step * 0.7) * 0.15 * Math.exp(-step * 0.18);
+        mesh.scale.set(origScale.x * s, origScale.y * s, origScale.z * s);
+        if (step > 20) {
+          clearInterval(interval);
+          mesh.scale.copy(origScale);
+        }
+      }, 20);
+    }
+
+    terrariumAudio.playCreatureMovement(creature.type);
+    terrariumAudio.playInteractionTone(580);
+    this.onSelectCreatureCallback?.(creature);
+  }
+
   private highlightPlant(plantId: string | null) {
     this.floraGroup.children.forEach((child) => {
       const isSelected = child.name === `plant-${plantId}`;
@@ -355,7 +453,6 @@ export class TerrariumScene {
   }
 
   private onPointerDown = (event: MouseEvent) => {
-    // Only raycast on primary click
     if (event.button !== 0) return;
 
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -363,10 +460,35 @@ export class TerrariumScene {
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.floraGroup.children, true);
 
+    // 1. Raycast Creatures
+    const creatureIntersects = this.raycaster.intersectObjects(this.creaturesGroup.children, true);
+    if (creatureIntersects.length > 0) {
+      let hitObj: THREE.Object3D | null = creatureIntersects[0].object;
+      let creatureId: string | null = null;
+      while (hitObj && hitObj !== this.creaturesGroup) {
+        if (hitObj.name.startsWith('creature-')) {
+          creatureId = hitObj.name.replace('creature-', '');
+          break;
+        }
+        hitObj = hitObj.parent;
+      }
+
+      if (creatureId) {
+        const found = this.creatures.find((c) => c.id === creatureId);
+        if (found) {
+          this.petCreature(creatureId);
+          this.focusOnCreature(found);
+          this.onSelectCreatureCallback?.(found);
+          this.onSelectPlantCallback?.(null);
+          return;
+        }
+      }
+    }
+
+    // 2. Raycast Flora
+    const intersects = this.raycaster.intersectObjects(this.floraGroup.children, true);
     if (intersects.length > 0) {
-      // Find top parent plant group
       let hitObj: THREE.Object3D | null = intersects[0].object;
       let plantId: string | null = null;
 
@@ -384,6 +506,7 @@ export class TerrariumScene {
           this.highlightPlant(plantId);
           this.focusOnPlant(found);
           this.onSelectPlantCallback?.(found);
+          this.onSelectCreatureCallback?.(null);
           terrariumAudio.playInteractionTone(440);
           return;
         }
@@ -410,13 +533,17 @@ export class TerrariumScene {
 
     // 1. Time cycle auto-advance
     if (this.currentConfig.autoCycleTime) {
-      const advance = (delta * this.currentConfig.timeCycleSpeed * 0.2);
+      const advance = delta * this.currentConfig.timeCycleSpeed * 0.2;
       this.currentConfig.timeHours = (this.currentConfig.timeHours + advance) % 24;
       this.lighting.updateTime(this.currentConfig.timeHours, this.currentConfig.weather);
-      terrariumAudio.updateAmbience(this.currentConfig.weather, this.currentConfig.timeHours, this.currentConfig.humidity);
+      terrariumAudio.updateAmbience(
+        this.currentConfig.weather,
+        this.currentConfig.timeHours,
+        this.currentConfig.humidity
+      );
     }
 
-    // 2. Camera smooth transition interpolation (Exponential damping)
+    // 2. Camera smooth transition interpolation
     if (this.isCameraTransitioning) {
       this.camera.position.x = THREE.MathUtils.damp(this.camera.position.x, this.cameraTargetPos.x, 4.5, delta);
       this.camera.position.y = THREE.MathUtils.damp(this.camera.position.y, this.cameraTargetPos.y, 4.5, delta);
@@ -444,7 +571,6 @@ export class TerrariumScene {
       const sway = Math.sin(elapsedTime * windSpeed + offset) * windStrength;
       child.rotation.z = sway;
 
-      // Mushroom bioluminescence pulse at night
       const isNight = this.currentConfig.timeHours > 19 || this.currentConfig.timeHours < 5.5;
       const bioLight = child.userData?.bioLight as THREE.PointLight | undefined;
       if (bioLight) {
@@ -453,13 +579,66 @@ export class TerrariumScene {
       }
     });
 
-    // 5. Update Weather microclimate particles
+    // 5. Animate Micro-Fauna (Beetle walking kinematics & Snail gliding)
+    this.creatureSoundTimer += delta;
+    this.creaturesGroup.children.forEach((cGroup) => {
+      const uData = cGroup.userData as CreatureUserData;
+      if (!uData || !uData.pathPoints || uData.pathPoints.length < 2) return;
+
+      const pts = uData.pathPoints;
+      // Advance along path
+      const speed = uData.creatureType === 'beetle' ? 0.08 : 0.025;
+      uData.pathProgress = (uData.pathProgress + delta * speed * 0.15) % 1.0;
+
+      const totalSegs = pts.length;
+      const pScaled = uData.pathProgress * totalSegs;
+      const segIndex = Math.floor(pScaled);
+      const nextIndex = (segIndex + 1) % totalSegs;
+      const t = pScaled - segIndex;
+
+      const p0 = pts[segIndex];
+      const p1 = pts[nextIndex];
+
+      cGroup.position.lerpVectors(p0, p1, t);
+
+      // Orient toward movement heading
+      const dirX = p1.x - p0.x;
+      const dirZ = p1.z - p0.z;
+      const targetAngle = Math.atan2(dirX, dirZ);
+      cGroup.rotation.y = THREE.MathUtils.damp(cGroup.rotation.y, targetAngle, 3.0, delta);
+
+      if (uData.creatureType === 'beetle') {
+        // Articulate 6 legs
+        if (uData.legs) {
+          uData.legs.forEach((leg, idx) => {
+            const phase = idx % 2 === 0 ? 0 : Math.PI;
+            leg.rotation.x = Math.sin(elapsedTime * 14 + phase) * 0.35;
+          });
+        }
+        // Twitch antennae
+        if (uData.antennae) {
+          uData.antennae.forEach((ant, idx) => {
+            ant.rotation.y = Math.sin(elapsedTime * 6 + idx * 2) * 0.2;
+          });
+        }
+      } else if (uData.creatureType === 'snail') {
+        // Gentle bob on eye stalks
+        if (uData.eyeStalks) {
+          uData.eyeStalks.forEach((stalk, idx) => {
+            stalk.rotation.z = Math.sin(elapsedTime * 2.5 + idx) * 0.12;
+            stalk.rotation.x = Math.cos(elapsedTime * 1.8 + idx) * 0.08;
+          });
+        }
+      }
+    });
+
+    // 6. Update Weather microclimate particles
     this.weather.update(delta, this.currentConfig.timeHours, this.currentConfig.humidity);
 
-    // 6. Update Controls
+    // 7. Update Controls
     this.controls.update();
 
-    // 7. Render frame
+    // 8. Render frame
     this.renderer.render(this.scene, this.camera);
 
     // Software WebGL pacing guard
