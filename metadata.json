@@ -1,0 +1,6 @@
+{
+  "name": "Botanica 3D Terrarium",
+  "description": "Interactive 3D glass terrarium with procedural flora, real-time day/night lighting cycles, and dynamic microclimate weather simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
