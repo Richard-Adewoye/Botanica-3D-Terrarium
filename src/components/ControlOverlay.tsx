@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MicroclimateForecastPanel } from './MicroclimateForecastPanel';
 import { DailyTasksWidget } from './DailyTasksWidget';
+import { CircadianSchedulePanel } from './CircadianSchedulePanel';
 import {
   TerrariumConfig,
   PlantSpecimen,
@@ -495,6 +496,9 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                     </button>
                   ))}
                 </div>
+
+                {/* Circadian Schedule Dashboard */}
+                <CircadianSchedulePanel config={config} onUpdateConfig={onUpdateConfig} />
               </div>
             )}
 

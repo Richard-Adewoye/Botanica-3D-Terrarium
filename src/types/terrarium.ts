@@ -63,10 +63,23 @@ export interface SoundLayersConfig {
   droplets: boolean;
 }
 
+export interface CircadianNode {
+  id: string;
+  label: string;
+  startHour: number; // 0 to 24
+  weather: WeatherType;
+  targetHumidity: number; // 30 to 100
+  bloomIntensity: number; // 0.0 to 1.5
+  targetTemperature: number; // 18 to 30 °C
+  description: string;
+}
+
 export interface TerrariumConfig {
   timeHours: number; // 0 to 24 (e.g. 12 = noon)
   autoCycleTime: boolean;
   timeCycleSpeed: number; // multiplier
+  autoCircadianSchedule?: boolean;
+  circadianNodes?: CircadianNode[];
   weather: WeatherType;
   humidity: number; // 0 to 100%
   showWeatherParticles: boolean; // toggle 3D rain/fog/spore particle system

@@ -12,6 +12,7 @@ import { TimeLapseModal } from './components/TimeLapseModal';
 import { TerrariumScene } from './three/TerrariumScene';
 import { INITIAL_SPECIMENS } from './data/initialFlora';
 import { INITIAL_CREATURES } from './data/initialCreatures';
+import { DEFAULT_CIRCADIAN_NODES } from './components/CircadianSchedulePanel';
 import { PlantSpecimen, CreatureSpecimen, TerrariumConfig, DailyTask } from './types/terrarium';
 import { DEFAULT_SOUND_LAYERS, terrariumAudio } from './audio/proceduralAudio';
 import { Camera, Check } from 'lucide-react';
@@ -68,6 +69,8 @@ export default function App() {
     timeHours: 12.0, // High noon initially
     autoCycleTime: false,
     timeCycleSpeed: 1,
+    autoCircadianSchedule: false,
+    circadianNodes: DEFAULT_CIRCADIAN_NODES,
     weather: 'clear',
     humidity: 55,
     showWeatherParticles: true,
@@ -84,6 +87,42 @@ export default function App() {
     showCreatures: true,
     seed: 42,
   });
+
+  // Automated Circadian Schedule Engine
+  useEffect(() => {
+    if (!config.autoCircadianSchedule) return;
+
+    const nodes = config.circadianNodes || DEFAULT_CIRCADIAN_NODES;
+    if (nodes.length === 0) return;
+
+    const currentHour = config.timeHours;
+    const sorted = [...nodes].sort((a, b) => a.startHour - b.startHour);
+
+    let activeNode = sorted[sorted.length - 1];
+    for (let i = 0; i < sorted.length; i++) {
+      if (currentHour >= sorted[i].startHour) {
+        activeNode = sorted[i];
+      }
+    }
+
+    if (activeNode) {
+      setConfig((prev) => {
+        if (
+          prev.weather === activeNode.weather &&
+          prev.humidity === activeNode.targetHumidity &&
+          Math.abs(prev.bloomIntensity - activeNode.bloomIntensity) < 0.02
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          weather: activeNode.weather,
+          humidity: activeNode.targetHumidity,
+          bloomIntensity: activeNode.bloomIntensity,
+        };
+      });
+    }
+  }, [config.timeHours, config.autoCircadianSchedule, config.circadianNodes]);
 
   const handleCompleteTask = useCallback((taskId: string) => {
     setDailyTasks((prev) =>
