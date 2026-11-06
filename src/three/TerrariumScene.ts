@@ -315,6 +315,9 @@ export class TerrariumScene {
     if (newConfig.soundVolume !== undefined) {
       terrariumAudio.setVolume(newConfig.soundVolume);
     }
+    if (newConfig.soundLayers) {
+      terrariumAudio.setSoundLayers(newConfig.soundLayers);
+    }
 
     // Plant selection highlight
     if (newConfig.selectedPlantId !== undefined) {

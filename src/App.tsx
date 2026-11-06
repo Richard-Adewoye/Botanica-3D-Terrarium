@@ -12,7 +12,7 @@ import { TerrariumScene } from './three/TerrariumScene';
 import { INITIAL_SPECIMENS } from './data/initialFlora';
 import { INITIAL_CREATURES } from './data/initialCreatures';
 import { PlantSpecimen, CreatureSpecimen, TerrariumConfig } from './types/terrarium';
-import { terrariumAudio } from './audio/proceduralAudio';
+import { DEFAULT_SOUND_LAYERS, terrariumAudio } from './audio/proceduralAudio';
 import { Camera, Check } from 'lucide-react';
 
 export default function App() {
@@ -40,6 +40,7 @@ export default function App() {
     vesselStyle: 'hexagonal',
     soundEnabled: true,
     soundVolume: 0.5,
+    soundLayers: { ...DEFAULT_SOUND_LAYERS },
     selectedPlantId: null,
     selectedCreatureId: null,
     showCreatures: true,

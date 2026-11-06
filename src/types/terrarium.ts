@@ -41,6 +41,18 @@ export interface CreatureSpecimen {
   description: string;
 }
 
+export type SoundLayerId = 'wind' | 'rain' | 'dayInsects' | 'birds' | 'crickets' | 'rustle' | 'droplets';
+
+export interface SoundLayersConfig {
+  wind: boolean;
+  rain: boolean;
+  dayInsects: boolean;
+  birds: boolean;
+  crickets: boolean;
+  rustle: boolean;
+  droplets: boolean;
+}
+
 export interface TerrariumConfig {
   timeHours: number; // 0 to 24 (e.g. 12 = noon)
   autoCycleTime: boolean;
@@ -53,6 +65,7 @@ export interface TerrariumConfig {
   vesselStyle: VesselStyle;
   soundEnabled: boolean;
   soundVolume: number;
+  soundLayers: SoundLayersConfig;
   selectedPlantId: string | null;
   selectedCreatureId: string | null;
   showCreatures: boolean;

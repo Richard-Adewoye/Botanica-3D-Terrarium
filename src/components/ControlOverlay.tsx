@@ -5,6 +5,8 @@ import {
   CreatureSpecimen,
   WeatherType,
   CameraPreset,
+  SoundLayerId,
+  SoundLayersConfig,
 } from '../types/terrarium';
 import {
   Sun,
@@ -27,8 +29,11 @@ import {
   Play,
   Wind,
   Download,
+  Music,
+  SlidersHorizontal,
+  Volume1,
 } from 'lucide-react';
-import { terrariumAudio } from '../audio/proceduralAudio';
+import { DEFAULT_SOUND_LAYERS, terrariumAudio } from '../audio/proceduralAudio';
 
 interface ControlOverlayProps {
   config: TerrariumConfig;
@@ -97,6 +102,102 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   const isNight = config.timeHours > 19.5 || config.timeHours < 5.5;
   const isRaining = config.weather === 'rain' || config.weather === 'storm';
 
+  const soundLayers = config.soundLayers || DEFAULT_SOUND_LAYERS;
+
+  const handleToggleLayer = (layerId: SoundLayerId) => {
+    const updated = {
+      ...soundLayers,
+      [layerId]: !soundLayers[layerId],
+    };
+    onUpdateConfig({ soundLayers: updated });
+    // Also ensure master audio is enabled if turning on a layer
+    if (!config.soundEnabled && !soundLayers[layerId]) {
+      onUpdateConfig({ soundEnabled: true, soundLayers: updated });
+    }
+  };
+
+  const handleSetAllLayers = (enabled: boolean) => {
+    const updated: SoundLayersConfig = {
+      wind: enabled,
+      rain: enabled,
+      dayInsects: enabled,
+      birds: enabled,
+      crickets: enabled,
+      rustle: enabled,
+      droplets: enabled,
+    };
+    onUpdateConfig({ soundLayers: updated });
+    if (enabled && !config.soundEnabled) {
+      onUpdateConfig({ soundEnabled: true, soundLayers: updated });
+    }
+  };
+
+  const SOUND_LAYER_ITEMS: Array<{
+    id: SoundLayerId;
+    name: string;
+    category: string;
+    icon: React.ReactNode;
+    desc: string;
+    preview: () => void;
+  }> = [
+    {
+      id: 'wind',
+      name: 'Wind & Breeze',
+      category: 'Atmosphere',
+      icon: <Wind className="w-3.5 h-3.5 text-teal-400" />,
+      desc: 'Resonant sweeping air filters',
+      preview: () => terrariumAudio.playFloraRustle(1.2),
+    },
+    {
+      id: 'rain',
+      name: 'Rain & Storm',
+      category: 'Precipitation',
+      icon: <CloudRain className="w-3.5 h-3.5 text-sky-400" />,
+      desc: 'Rain patter & thunder rumbles',
+      preview: () => terrariumAudio.playThunderRumble(),
+    },
+    {
+      id: 'dayInsects',
+      name: 'Daytime Insects',
+      category: 'Fauna • Day',
+      icon: <Sun className="w-3.5 h-3.5 text-amber-400" />,
+      desc: 'Cicada FM trills & grasshopper clicks',
+      preview: () => terrariumAudio.playDayGrasshopperChirp(),
+    },
+    {
+      id: 'birds',
+      name: 'Canopy Songbirds',
+      category: 'Fauna • Day',
+      icon: <Music className="w-3.5 h-3.5 text-emerald-400" />,
+      desc: 'Melodic sine bird calls & whistles',
+      preview: () => terrariumAudio.playBirdSong(),
+    },
+    {
+      id: 'crickets',
+      name: 'Night Crickets',
+      category: 'Fauna • Night',
+      icon: <Moon className="w-3.5 h-3.5 text-indigo-400" />,
+      desc: 'Staccato stridulation pulses',
+      preview: () => terrariumAudio.playCricketStridulation(),
+    },
+    {
+      id: 'rustle',
+      name: 'Flora Rustle',
+      category: 'Ecosystem',
+      icon: <Flower2 className="w-3.5 h-3.5 text-green-400" />,
+      desc: 'Foliage friction & bark crawls',
+      preview: () => terrariumAudio.playFloraRustle(1.0),
+    },
+    {
+      id: 'droplets',
+      name: 'Water Droplets',
+      category: 'Hydration',
+      icon: <Droplets className="w-3.5 h-3.5 text-blue-400" />,
+      desc: 'Glass taps & soil drop chimes',
+      preview: () => terrariumAudio.playWaterDroplet(),
+    },
+  ];
+
   return (
     <>
       {/* Top-Left Minimal Title / Spec Badge & Snapshot Trigger */}
@@ -107,7 +208,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             <h1 className="text-sm font-semibold tracking-wide flex items-center gap-2">
               Botanica 3D Terrarium
               <span className="text-[10px] font-mono text-neutral-400 font-normal px-1.5 py-0.5 bg-neutral-800 rounded">
-                v1.1 Dynamic Audio
+                v1.2 Sound Layers
               </span>
             </h1>
             <p className="text-[11px] text-neutral-400 flex items-center gap-2 mt-0.5">
@@ -141,7 +242,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
 
       {/* Consolidated Bottom Dock */}
       <div
-        className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-20 w-[94vw] max-w-[940px] transition-transform duration-300 ease-out select-none ${
+        className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-20 w-[94vw] max-w-[960px] transition-transform duration-300 ease-out select-none ${
           isCollapsed ? 'translate-y-[calc(100%-38px)]' : 'translate-y-0'
         }`}
       >
@@ -232,7 +333,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                 ) : (
                   <VolumeX className="w-3.5 h-3.5 text-neutral-400" />
                 )}
-                <span>Ambient Audio</span>
+                <span>Ambient Audio & Layers</span>
               </button>
             </div>
 
@@ -263,7 +364,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           </div>
 
           {/* Tab Panel Content */}
-          <div className="p-4 bg-neutral-900 min-h-[115px] flex flex-col justify-center">
+          <div className="p-4 bg-neutral-900 min-h-[125px] flex flex-col justify-center">
             {/* 1. Time & Lighting Tab */}
             {activeTab === 'time' && (
               <div className="space-y-3">
@@ -543,108 +644,141 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
 
             {/* 5. Procedural Audio Tab */}
             {activeTab === 'audio' && (
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="space-y-3.5">
+                {/* Master Volume & Audio Toggle Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800/80 pb-3">
                   <div className="flex items-center gap-2">
                     {config.soundEnabled ? (
                       <Volume2 className="w-4 h-4 text-emerald-400" />
                     ) : (
                       <VolumeX className="w-4 h-4 text-neutral-400" />
                     )}
-                    <span className="text-xs font-medium text-neutral-200">
-                      Real-Time Dynamic Audio Engine:
+                    <span className="text-xs font-semibold text-neutral-200">
+                      Master Web Audio Engine:
                     </span>
                     <span className="text-[11px] text-neutral-400 font-mono">
                       {config.soundEnabled ? 'Synthesizing live audio' : 'Muted'}
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => onUpdateConfig({ soundEnabled: !config.soundEnabled })}
-                    className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
-                      config.soundEnabled
-                        ? 'bg-emerald-950 border-emerald-700 text-emerald-300'
-                        : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:bg-neutral-700'
-                    }`}
-                  >
-                    {config.soundEnabled ? 'Mute Ambience' : 'Enable Ambience'}
-                  </button>
-                </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-neutral-400">Volume:</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        disabled={!config.soundEnabled}
+                        value={config.soundVolume}
+                        onChange={(e) => onUpdateConfig({ soundVolume: parseFloat(e.target.value) })}
+                        className="w-24 sm:w-32 h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 disabled:opacity-40"
+                      />
+                      <span className="text-xs font-mono text-neutral-300 w-8 text-right">
+                        {Math.round(config.soundVolume * 100)}%
+                      </span>
+                    </div>
 
-                {/* Volume slider & Live Status badges */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
-                  <div className="flex items-center gap-3 flex-1 max-w-sm">
-                    <span className="text-xs text-neutral-400 w-24 shrink-0">Master Volume:</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      disabled={!config.soundEnabled}
-                      value={config.soundVolume}
-                      onChange={(e) => onUpdateConfig({ soundVolume: parseFloat(e.target.value) })}
-                      className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 disabled:opacity-40"
-                    />
-                    <span className="text-xs font-mono text-neutral-300 w-10 text-right">
-                      {Math.round(config.soundVolume * 100)}%
-                    </span>
-                  </div>
-
-                  {/* Active sound indicators */}
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                    <span
-                      className={`px-2 py-0.5 rounded border ${
-                        isDay && config.weather !== 'storm'
-                          ? 'bg-amber-950/80 border-amber-700 text-amber-300'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-500'
-                      }`}
-                    >
-                      Day Insects {isDay && config.weather !== 'storm' ? '• Active' : '• Idle'}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded border ${
-                        isNight && config.weather !== 'storm'
-                          ? 'bg-indigo-950/80 border-indigo-700 text-indigo-300'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-500'
-                      }`}
-                    >
-                      Night Crickets {isNight && config.weather !== 'storm' ? '• Active' : '• Idle'}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded border ${
-                        isRaining
-                          ? 'bg-sky-950/80 border-sky-700 text-sky-300'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-500'
-                      }`}
-                    >
-                      Rain Patter {isRaining ? '• Active' : '• Idle'}
-                    </span>
-                    <span className="px-2 py-0.5 rounded border bg-emerald-950/80 border-emerald-800 text-emerald-300">
-                      Flora Rustle • Periodic
-                    </span>
-                  </div>
-                </div>
-
-                {/* Direct Sound Sample Triggers */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-neutral-800/80">
-                  <span className="text-[11px] text-neutral-400 mr-1">Preview Synthesized Sound:</span>
-                  {[
-                    { label: 'Rain Patter', icon: <Droplets className="w-3 h-3 text-sky-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playWaterDroplet(); } },
-                    { label: 'Day Cicada', icon: <Sun className="w-3 h-3 text-amber-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playDayGrasshopperChirp(); } },
-                    { label: 'Night Cricket', icon: <Moon className="w-3 h-3 text-indigo-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playCricketStridulation(); } },
-                    { label: 'Leaf Rustle', icon: <Wind className="w-3 h-3 text-emerald-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playFloraRustle(1.0); } },
-                    { label: 'Creature Crawl', icon: <Bug className="w-3 h-3 text-amber-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playCreatureMovement('beetle'); } },
-                    { label: 'Thunder', icon: <CloudLightning className="w-3 h-3 text-indigo-400" />, action: () => { if (!config.soundEnabled) onUpdateConfig({ soundEnabled: true }); terrariumAudio.playThunderRumble(); } },
-                  ].map((btn) => (
                     <button
-                      key={btn.label}
-                      onClick={btn.action}
-                      className="flex items-center gap-1 px-2 py-1 text-[11px] bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-600 rounded border border-neutral-700 text-neutral-200 transition-colors cursor-pointer"
+                      onClick={() => onUpdateConfig({ soundEnabled: !config.soundEnabled })}
+                      className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer shrink-0 ${
+                        config.soundEnabled
+                          ? 'bg-emerald-950 border-emerald-700 text-emerald-300'
+                          : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:bg-neutral-700'
+                      }`}
                     >
-                      {btn.icon}
-                      <span>{btn.label}</span>
+                      {config.soundEnabled ? 'Mute Master' : 'Enable Master'}
                     </button>
-                  ))}
+                  </div>
+                </div>
+
+                {/* Individual Environmental Sound Layers Section */}
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div>
+                      <h4 className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Individual Environmental Sound Tracks</span>
+                      </h4>
+                      <p className="text-[11px] text-neutral-400">
+                        Toggle specific synthesized ambient layers independently or audition live samples.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleSetAllLayers(true)}
+                        className="px-2.5 py-1 text-[11px] font-medium bg-neutral-800 hover:bg-neutral-700 text-emerald-400 rounded-md border border-neutral-700 cursor-pointer transition-colors"
+                      >
+                        Enable All Layers
+                      </button>
+                      <button
+                        onClick={() => handleSetAllLayers(false)}
+                        className="px-2.5 py-1 text-[11px] font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded-md border border-neutral-700 cursor-pointer transition-colors"
+                      >
+                        Mute All Layers
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Individual Sound Layer Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1 max-h-[190px] overflow-y-auto pr-0.5">
+                    {SOUND_LAYER_ITEMS.map((item) => {
+                      const isEnabled = !!soundLayers[item.id];
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex items-start justify-between p-2.5 rounded-xl border transition-all ${
+                            isEnabled
+                              ? 'bg-neutral-950/80 border-emerald-800/80 shadow-xs'
+                              : 'bg-neutral-950/40 border-neutral-800/60 opacity-60'
+                          }`}
+                        >
+                          <div className="space-y-1 min-w-0 pr-1.5">
+                            <div className="flex items-center gap-1.5">
+                              {item.icon}
+                              <span className="text-xs font-semibold text-neutral-100 truncate">
+                                {item.name}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-neutral-400 line-clamp-1">
+                              {item.desc}
+                            </p>
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              <span className="text-[9px] font-mono text-neutral-500 bg-neutral-900 border border-neutral-800 px-1.5 py-0.2 rounded">
+                                {item.category}
+                              </span>
+                              <button
+                                onClick={item.preview}
+                                className="flex items-center gap-0.5 text-[10px] font-medium text-sky-400 hover:text-sky-300 cursor-pointer"
+                                title={`Preview ${item.name} sound`}
+                              >
+                                <Play className="w-2.5 h-2.5 fill-current" />
+                                <span>Preview</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Toggle Switch */}
+                          <button
+                            onClick={() => handleToggleLayer(item.id)}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                              isEnabled ? 'bg-emerald-500' : 'bg-neutral-700'
+                            }`}
+                            role="switch"
+                            aria-checked={isEnabled}
+                            title={`Toggle ${item.name} layer`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                                isEnabled ? 'translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}

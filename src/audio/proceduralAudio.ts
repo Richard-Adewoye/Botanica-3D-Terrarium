@@ -5,21 +5,39 @@
  * Capabilities:
  * - Dynamic Gentle & Storm Rain with glass patter and low thunder rumbles
  * - Daytime Insects: Summer cicada trills, meadow grasshoppers & gentle bee hum
+ * - Songbirds: Melodic canopy bird calls & whistles
  * - Nocturnal Field Crickets: Rhythmic staccato stridulations and katydid pulses
  * - Organic Flora Rustling: Leaf brushing against glass/soil in the breeze
  * - Micro-Fauna Movement: Insect skitters, shell sliding, and twig clicks
  * - Hydration & Water Droplet chimes
+ * - Individual sound layer mute/unmute control
  */
+
+import { SoundLayerId, SoundLayersConfig } from '../types/terrarium';
+
+export const DEFAULT_SOUND_LAYERS: SoundLayersConfig = {
+  wind: true,
+  rain: true,
+  dayInsects: true,
+  birds: true,
+  crickets: true,
+  rustle: true,
+  droplets: true,
+};
 
 class ProceduralTerrariumAudio {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = true;
   private masterGain: GainNode | null = null;
 
+  // Layer enable flags
+  private soundLayers: SoundLayersConfig = { ...DEFAULT_SOUND_LAYERS };
+
   // Sound layer gains
   private rainGain: GainNode | null = null;
   private windGain: GainNode | null = null;
   private dayInsectsGain: GainNode | null = null;
+  private birdsGain: GainNode | null = null;
   private nightCricketsGain: GainNode | null = null;
   private rustleGain: GainNode | null = null;
   private beeGain: GainNode | null = null;
@@ -35,12 +53,14 @@ class ProceduralTerrariumAudio {
   private dropletTimer: number | null = null;
   private nightCricketTimer: number | null = null;
   private dayInsectTimer: number | null = null;
+  private birdTimer: number | null = null;
   private rustleTimer: number | null = null;
   private thunderTimer: number | null = null;
 
   private currentVolume: number = 0.5;
   private lastWeather: string = 'clear';
   private lastTimeHours: number = 12.0;
+  private lastHumidity: number = 55;
 
   private initContext() {
     if (this.ctx) return;
@@ -70,17 +90,22 @@ class ProceduralTerrariumAudio {
     this.dayInsectsGain.gain.setValueAtTime(0, this.ctx.currentTime);
     this.dayInsectsGain.connect(this.masterGain);
 
-    // 4. Night Crickets Layer
+    // 4. Songbirds Layer
+    this.birdsGain = this.ctx.createGain();
+    this.birdsGain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+    this.birdsGain.connect(this.masterGain);
+
+    // 5. Night Crickets Layer
     this.nightCricketsGain = this.ctx.createGain();
     this.nightCricketsGain.gain.setValueAtTime(0, this.ctx.currentTime);
     this.nightCricketsGain.connect(this.masterGain);
 
-    // 5. Flora Rustle & Fauna Movement Layer
+    // 6. Flora Rustle & Fauna Movement Layer
     this.rustleGain = this.ctx.createGain();
     this.rustleGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
     this.rustleGain.connect(this.masterGain);
 
-    // 6. Bee / Fly gentle drone
+    // 7. Bee / Fly gentle drone
     this.beeGain = this.ctx.createGain();
     this.beeGain.gain.setValueAtTime(0, this.ctx.currentTime);
     this.beeGain.connect(this.masterGain);
@@ -203,7 +228,7 @@ class ProceduralTerrariumAudio {
    * Water droplet tap on glass or soil
    */
   public playWaterDroplet() {
-    if (!this.ctx || this.isMuted || !this.masterGain) return;
+    if (!this.ctx || this.isMuted || !this.masterGain || !this.soundLayers.droplets) return;
     const now = this.ctx.currentTime;
 
     const osc = this.ctx.createOscillator();
@@ -226,10 +251,45 @@ class ProceduralTerrariumAudio {
   }
 
   /**
+   * Songbird melodic call (2-4 gentle chirp notes)
+   */
+  public playBirdSong() {
+    if (!this.ctx || this.isMuted || !this.birdsGain || !this.soundLayers.birds) return;
+    const now = this.ctx.currentTime;
+
+    const noteCount = 2 + Math.floor(Math.random() * 3);
+    const baseFreq = 2200 + Math.random() * 1200;
+
+    for (let i = 0; i < noteCount; i++) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      const noteStart = now + i * 0.12;
+      const noteDur = 0.08 + Math.random() * 0.06;
+      const freqStart = baseFreq + (i * 250) + (Math.random() * 200);
+      const freqEnd = freqStart + (Math.random() > 0.5 ? 400 : -300);
+
+      osc.frequency.setValueAtTime(freqStart, noteStart);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1200, freqEnd), noteStart + noteDur);
+
+      gain.gain.setValueAtTime(0.0001, noteStart);
+      gain.gain.linearRampToValueAtTime(0.04 * this.currentVolume, noteStart + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + noteDur);
+
+      osc.connect(gain);
+      gain.connect(this.birdsGain);
+
+      osc.start(noteStart);
+      osc.stop(noteStart + noteDur + 0.01);
+    }
+  }
+
+  /**
    * Night cricket multi-pulse chirp (chirp... chirp... chirp)
    */
   public playCricketStridulation() {
-    if (!this.ctx || this.isMuted || !this.nightCricketsGain) return;
+    if (!this.ctx || this.isMuted || !this.nightCricketsGain || !this.soundLayers.crickets) return;
     const now = this.ctx.currentTime;
 
     const baseFreq = 4400 + Math.random() * 300;
@@ -261,7 +321,7 @@ class ProceduralTerrariumAudio {
    * Daytime meadow insect / grasshopper quick snap-chirp
    */
   public playDayGrasshopperChirp() {
-    if (!this.ctx || this.isMuted || !this.dayInsectsGain) return;
+    if (!this.ctx || this.isMuted || !this.dayInsectsGain || !this.soundLayers.dayInsects) return;
     const now = this.ctx.currentTime;
 
     const osc = this.ctx.createOscillator();
@@ -295,7 +355,7 @@ class ProceduralTerrariumAudio {
    * Subtle flora foliage rustle (leaves brushing against each other / glass)
    */
   public playFloraRustle(intensity = 1.0) {
-    if (!this.ctx || this.isMuted || !this.rustleGain) return;
+    if (!this.ctx || this.isMuted || !this.rustleGain || !this.soundLayers.rustle) return;
     const now = this.ctx.currentTime;
 
     const noiseBuffer = this.createPinkNoiseBuffer();
@@ -329,7 +389,7 @@ class ProceduralTerrariumAudio {
    * Micro-fauna movement (insect / snail crawl on bark & moss)
    */
   public playCreatureMovement(creatureType: 'beetle' | 'snail' = 'beetle') {
-    if (!this.ctx || this.isMuted || !this.rustleGain) return;
+    if (!this.ctx || this.isMuted || !this.rustleGain || !this.soundLayers.rustle) return;
     const now = this.ctx.currentTime;
 
     if (creatureType === 'beetle') {
@@ -383,7 +443,7 @@ class ProceduralTerrariumAudio {
    * Distant low rolling thunder rumble during storms
    */
   public playThunderRumble() {
-    if (!this.ctx || this.isMuted || !this.masterGain) return;
+    if (!this.ctx || this.isMuted || !this.masterGain || !this.soundLayers.rain) return;
     const now = this.ctx.currentTime;
 
     const noiseBuffer = this.createPinkNoiseBuffer();
@@ -481,7 +541,7 @@ class ProceduralTerrariumAudio {
       const delay = isRaining ? 500 + Math.random() * 1400 : 2500 + Math.random() * 5500;
 
       this.dropletTimer = window.setTimeout(() => {
-        if (!this.isMuted && (isRaining || this.lastWeather === 'mist')) {
+        if (!this.isMuted && (isRaining || this.lastWeather === 'mist') && this.soundLayers.droplets) {
           this.playWaterDroplet();
         }
         scheduleDroplet();
@@ -489,13 +549,27 @@ class ProceduralTerrariumAudio {
     };
     scheduleDroplet();
 
-    // 2. Night crickets (active when dark)
+    // 2. Songbirds (active during daytime clear/mist/spores)
+    const scheduleBirds = () => {
+      if (this.birdTimer) window.clearTimeout(this.birdTimer);
+      const delay = 3000 + Math.random() * 7000;
+      this.birdTimer = window.setTimeout(() => {
+        const isDay = this.lastTimeHours >= 6.0 && this.lastTimeHours <= 19.0;
+        if (!this.isMuted && isDay && this.lastWeather !== 'storm' && this.soundLayers.birds) {
+          this.playBirdSong();
+        }
+        scheduleBirds();
+      }, delay);
+    };
+    scheduleBirds();
+
+    // 3. Night crickets (active when dark)
     const scheduleNightCrickets = () => {
       if (this.nightCricketTimer) window.clearTimeout(this.nightCricketTimer);
       const delay = 1200 + Math.random() * 2800;
       this.nightCricketTimer = window.setTimeout(() => {
         const isNight = this.lastTimeHours > 19.5 || this.lastTimeHours < 5.5;
-        if (!this.isMuted && isNight && this.lastWeather !== 'storm') {
+        if (!this.isMuted && isNight && this.lastWeather !== 'storm' && this.soundLayers.crickets) {
           this.playCricketStridulation();
         }
         scheduleNightCrickets();
@@ -503,13 +577,13 @@ class ProceduralTerrariumAudio {
     };
     scheduleNightCrickets();
 
-    // 3. Daytime insects (active during day)
+    // 4. Daytime insects (active during day)
     const scheduleDayInsects = () => {
       if (this.dayInsectTimer) window.clearTimeout(this.dayInsectTimer);
       const delay = 1800 + Math.random() * 4000;
       this.dayInsectTimer = window.setTimeout(() => {
         const isDay = this.lastTimeHours >= 6.5 && this.lastTimeHours <= 19.0;
-        if (!this.isMuted && isDay && this.lastWeather !== 'storm') {
+        if (!this.isMuted && isDay && this.lastWeather !== 'storm' && this.soundLayers.dayInsects) {
           this.playDayGrasshopperChirp();
         }
         scheduleDayInsects();
@@ -517,12 +591,12 @@ class ProceduralTerrariumAudio {
     };
     scheduleDayInsects();
 
-    // 4. Subtle flora rustles & micro-fauna crawl
+    // 5. Subtle flora rustles & micro-fauna crawl
     const scheduleRustles = () => {
       if (this.rustleTimer) window.clearTimeout(this.rustleTimer);
       const delay = 3500 + Math.random() * 6000;
       this.rustleTimer = window.setTimeout(() => {
-        if (!this.isMuted) {
+        if (!this.isMuted && this.soundLayers.rustle) {
           if (Math.random() > 0.45) {
             this.playFloraRustle(0.6 + Math.random() * 0.4);
           } else {
@@ -534,12 +608,12 @@ class ProceduralTerrariumAudio {
     };
     scheduleRustles();
 
-    // 5. Periodic distant thunder in storms
+    // 6. Periodic distant thunder in storms
     const scheduleThunder = () => {
       if (this.thunderTimer) window.clearTimeout(this.thunderTimer);
       const delay = 7000 + Math.random() * 11000;
       this.thunderTimer = window.setTimeout(() => {
-        if (!this.isMuted && this.lastWeather === 'storm') {
+        if (!this.isMuted && this.lastWeather === 'storm' && this.soundLayers.rain) {
           this.playThunderRumble();
         }
         scheduleThunder();
@@ -553,46 +627,47 @@ class ProceduralTerrariumAudio {
   public updateAmbience(weather: string, timeHours: number, humidity: number) {
     this.lastWeather = weather;
     this.lastTimeHours = timeHours;
+    this.lastHumidity = humidity;
 
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
 
     // Time calculations
     const isDay = timeHours >= 6.5 && timeHours <= 19.0;
-    // Midday peak warmth around 12:00-14:00
     const middayFactor = Math.max(0, 1 - Math.abs(timeHours - 13.0) / 5.5);
     const isNight = timeHours > 19.5 || timeHours < 5.5;
 
     // 1. Rain intensity
     let targetRain = 0;
-    if (weather === 'rain') targetRain = 0.22;
-    else if (weather === 'storm') targetRain = 0.45;
-    else if (weather === 'mist') targetRain = 0.05;
-
+    if (this.soundLayers.rain) {
+      if (weather === 'rain') targetRain = 0.22;
+      else if (weather === 'storm') targetRain = 0.45;
+      else if (weather === 'mist') targetRain = 0.05;
+    }
     if (this.rainGain) {
       this.rainGain.gain.setTargetAtTime(targetRain, now, 0.4);
     }
 
     // 2. Wind intensity
-    let targetWind = 0.04;
-    if (weather === 'storm') targetWind = 0.22;
-    else if (weather === 'spores') targetWind = 0.09;
-    else if (weather === 'mist') targetWind = 0.06;
-
+    let targetWind = 0;
+    if (this.soundLayers.wind) {
+      targetWind = 0.04;
+      if (weather === 'storm') targetWind = 0.22;
+      else if (weather === 'spores') targetWind = 0.09;
+      else if (weather === 'mist') targetWind = 0.06;
+    }
     if (this.windGain) {
       this.windGain.gain.setTargetAtTime(targetWind, now, 0.4);
     }
 
     // 3. Daytime insects (Cicadas & Bees)
-    // Silenced during heavy rain or storms, highest during clear/spores warm sunny day
     let targetDayInsects = 0;
     let targetBee = 0;
-    if (isDay && weather !== 'storm' && weather !== 'rain') {
+    if (this.soundLayers.dayInsects && isDay && weather !== 'storm' && weather !== 'rain') {
       const weatherMult = weather === 'mist' ? 0.4 : 1.0;
       targetDayInsects = (0.04 + middayFactor * 0.08) * weatherMult;
       targetBee = (0.01 + middayFactor * 0.03) * weatherMult;
     }
-
     if (this.dayInsectsGain) {
       this.dayInsectsGain.gain.setTargetAtTime(targetDayInsects, now, 0.8);
     }
@@ -602,14 +677,29 @@ class ProceduralTerrariumAudio {
 
     // 4. Night Crickets
     let targetCrickets = 0;
-    if (isNight && weather !== 'storm') {
+    if (this.soundLayers.crickets && isNight && weather !== 'storm') {
       const weatherMult = weather === 'rain' ? 0.3 : 1.0;
       targetCrickets = 0.08 * weatherMult;
     }
-
     if (this.nightCricketsGain) {
       this.nightCricketsGain.gain.setTargetAtTime(targetCrickets, now, 0.8);
     }
+  }
+
+  // --- Sound Layer Toggle API ---
+
+  public setSoundLayers(layers: Partial<SoundLayersConfig>) {
+    this.soundLayers = { ...this.soundLayers, ...layers };
+    this.updateAmbience(this.lastWeather, this.lastTimeHours, this.lastHumidity);
+  }
+
+  public setLayerEnabled(layer: SoundLayerId, enabled: boolean) {
+    this.soundLayers[layer] = enabled;
+    this.updateAmbience(this.lastWeather, this.lastTimeHours, this.lastHumidity);
+  }
+
+  public getSoundLayers(): SoundLayersConfig {
+    return { ...this.soundLayers };
   }
 
   public setSoundEnabled(enabled: boolean) {
@@ -624,7 +714,6 @@ class ProceduralTerrariumAudio {
       const targetGain = this.isMuted ? 0 : this.currentVolume;
       this.masterGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.1);
 
-      // Trigger initial welcoming leaf rustle & gentle chime
       if (enabled) {
         setTimeout(() => {
           this.playFloraRustle(0.7);
@@ -644,6 +733,7 @@ class ProceduralTerrariumAudio {
     if (this.dropletTimer) window.clearTimeout(this.dropletTimer);
     if (this.nightCricketTimer) window.clearTimeout(this.nightCricketTimer);
     if (this.dayInsectTimer) window.clearTimeout(this.dayInsectTimer);
+    if (this.birdTimer) window.clearTimeout(this.birdTimer);
     if (this.rustleTimer) window.clearTimeout(this.rustleTimer);
     if (this.thunderTimer) window.clearTimeout(this.thunderTimer);
 
