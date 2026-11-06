@@ -32,6 +32,7 @@ import {
   Music,
   SlidersHorizontal,
   Volume1,
+  Video,
 } from 'lucide-react';
 import { DEFAULT_SOUND_LAYERS, terrariumAudio } from '../audio/proceduralAudio';
 
@@ -45,6 +46,7 @@ interface ControlOverlayProps {
   onHydratePlant: (plantId: string) => void;
   onRegenerateFlora: () => void;
   onCaptureSnapshot: () => void;
+  onOpenTimeLapse?: (plantId?: string) => void;
 }
 
 type TabType = 'time' | 'weather' | 'flora' | 'camera' | 'audio';
@@ -59,6 +61,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   onHydratePlant,
   onRegenerateFlora,
   onCaptureSnapshot,
+  onOpenTimeLapse,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('time');
@@ -71,11 +74,13 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
         setIsCollapsed((prev) => !prev);
       } else if (e.key === 's' || e.key === 'S') {
         onCaptureSnapshot();
+      } else if (e.key === 't' || e.key === 'T') {
+        onOpenTimeLapse?.();
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onCaptureSnapshot]);
+  }, [onCaptureSnapshot, onOpenTimeLapse]);
 
   // Format hours into 12-hour/24-hour readable string
   const formatTime = (hours: number) => {
@@ -208,7 +213,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             <h1 className="text-sm font-semibold tracking-wide flex items-center gap-2">
               Botanica 3D Terrarium
               <span className="text-[10px] font-mono text-neutral-400 font-normal px-1.5 py-0.5 bg-neutral-800 rounded">
-                v1.2 Sound Layers
+                v1.3 Time-Lapse Studio
               </span>
             </h1>
             <p className="text-[11px] text-neutral-400 flex items-center gap-2 mt-0.5">
@@ -224,19 +229,32 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={onCaptureSnapshot}
-            className="ml-2 flex items-center gap-1.5 bg-sky-600/90 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer shadow border border-sky-400/30"
-            title="Capture 3D render snapshot as PNG (Key: S)"
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Snapshot</span>
-          </button>
+          <div className="flex items-center gap-1.5 ml-2">
+            {onOpenTimeLapse && (
+              <button
+                onClick={() => onOpenTimeLapse()}
+                className="flex items-center gap-1.5 bg-emerald-700/90 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer shadow border border-emerald-400/30"
+                title="Launch simulated plant growth time-lapse studio (Key: T)"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>Time-Lapse</span>
+              </button>
+            )}
+
+            <button
+              onClick={onCaptureSnapshot}
+              className="flex items-center gap-1.5 bg-sky-600/90 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer shadow border border-sky-400/30"
+              title="Capture 3D render snapshot as PNG (Key: S)"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>Snapshot</span>
+            </button>
+          </div>
         </div>
 
         {/* Quick hint banner */}
         <div className="text-[11px] text-neutral-400 bg-neutral-950/80 border border-neutral-800 px-3 py-1.5 rounded-lg max-w-sm shadow">
-          <span>Click flora or fauna to inspect. Press <strong>&apos;S&apos;</strong> to save snapshot, <strong>&apos;H&apos;</strong> to hide dock.</span>
+          <span>Click flora to inspect. Press <strong>&apos;T&apos;</strong> for Time-Lapse, <strong>&apos;S&apos;</strong> for snapshot.</span>
         </div>
       </div>
 
@@ -485,6 +503,46 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                       <span className="capitalize">{w}</span>
                     </button>
                   ))}
+                </div>
+
+                {/* Dynamic Weather Particle System Toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl border border-neutral-800 bg-neutral-950/80 my-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-sky-950/80 border border-sky-800/80 text-sky-400 shrink-0">
+                      <CloudRain className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-neutral-100">Dynamic Weather Particles:</span>
+                        <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
+                          (config.showWeatherParticles ?? true)
+                            ? 'bg-emerald-950 border-emerald-700 text-emerald-300'
+                            : 'bg-neutral-800 border-neutral-700 text-neutral-400'
+                        }`}>
+                          {(config.showWeatherParticles ?? true) ? 'Active' : 'Disabled'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">
+                        Renders 3D rain droplets, mist, fog, and floating bio-spore particle physics in the scene.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onUpdateConfig({ showWeatherParticles: !(config.showWeatherParticles ?? true) })}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      (config.showWeatherParticles ?? true) ? 'bg-sky-500' : 'bg-neutral-700'
+                    }`}
+                    role="switch"
+                    aria-checked={config.showWeatherParticles ?? true}
+                    title="Toggle 3D weather particle effects (rain, fog, spores)"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                        (config.showWeatherParticles ?? true) ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
                 </div>
 
                 {/* Humidity Condensation Slider */}

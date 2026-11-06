@@ -8,6 +8,7 @@ import { TerrariumCanvas } from './components/TerrariumCanvas';
 import { ControlOverlay } from './components/ControlOverlay';
 import { PlantInspectorModal } from './components/PlantInspectorModal';
 import { CreatureInspectorModal } from './components/CreatureInspectorModal';
+import { TimeLapseModal } from './components/TimeLapseModal';
 import { TerrariumScene } from './three/TerrariumScene';
 import { INITIAL_SPECIMENS } from './data/initialFlora';
 import { INITIAL_CREATURES } from './data/initialCreatures';
@@ -24,6 +25,10 @@ export default function App() {
   const [selectedPlant, setSelectedPlant] = useState<PlantSpecimen | null>(null);
   const [selectedCreature, setSelectedCreature] = useState<CreatureSpecimen | null>(null);
 
+  // Time-Lapse Studio state
+  const [isTimeLapseActive, setIsTimeLapseActive] = useState<boolean>(false);
+  const [timeLapseTargetPlantId, setTimeLapseTargetPlantId] = useState<string | null>(null);
+
   // Snapshot visual feedback
   const [isShutterFlashing, setIsShutterFlashing] = useState(false);
   const [snapshotToast, setSnapshotToast] = useState<string | null>(null);
@@ -34,6 +39,7 @@ export default function App() {
     timeCycleSpeed: 1,
     weather: 'clear',
     humidity: 55,
+    showWeatherParticles: true,
     lidOpenAmount: 0,
     cameraPreset: 'default',
     autoRotate: false,
@@ -153,6 +159,15 @@ export default function App() {
     handleUpdateConfig({ seed: newSeed });
   }, [handleUpdateConfig]);
 
+  const handleOpenTimeLapse = useCallback((plantId?: string) => {
+    setTimeLapseTargetPlantId(plantId || null);
+    setIsTimeLapseActive(true);
+  }, []);
+
+  const handleCloseTimeLapse = useCallback(() => {
+    setIsTimeLapseActive(false);
+  }, []);
+
   // Snapshot Capture logic
   const handleCaptureSnapshot = useCallback(() => {
     if (!sceneRef.current) return;
@@ -255,17 +270,18 @@ export default function App() {
       />
 
       {/* Selected Plant Detail Inspector Card */}
-      {selectedPlant && (
+      {selectedPlant && !isTimeLapseActive && (
         <PlantInspectorModal
           specimen={selectedPlant}
           onClose={() => handleSelectPlant(null)}
           onHydrate={handleHydratePlant}
           onFocus={handleFocusPlant}
+          onOpenTimeLapse={handleOpenTimeLapse}
         />
       )}
 
       {/* Selected Creature Detail Inspector Card */}
-      {selectedCreature && (
+      {selectedCreature && !isTimeLapseActive && (
         <CreatureInspectorModal
           creature={selectedCreature}
           onClose={() => handleSelectCreature(null)}
@@ -274,18 +290,33 @@ export default function App() {
         />
       )}
 
+      {/* Time-Lapse 4D Growth Studio Overlay Modal */}
+      {isTimeLapseActive && (
+        <TimeLapseModal
+          specimens={specimens}
+          config={config}
+          onUpdateConfig={handleUpdateConfig}
+          sceneRef={sceneRef}
+          onClose={handleCloseTimeLapse}
+          initialPlantId={timeLapseTargetPlantId}
+        />
+      )}
+
       {/* Sleek Collapsible Bottom Dock */}
-      <ControlOverlay
-        config={config}
-        onUpdateConfig={handleUpdateConfig}
-        specimens={specimens}
-        creatures={creatures}
-        onSelectPlant={handleSelectPlant}
-        onSelectCreature={handleSelectCreature}
-        onHydratePlant={handleHydratePlant}
-        onRegenerateFlora={handleRegenerateFlora}
-        onCaptureSnapshot={handleCaptureSnapshot}
-      />
+      {!isTimeLapseActive && (
+        <ControlOverlay
+          config={config}
+          onUpdateConfig={handleUpdateConfig}
+          specimens={specimens}
+          creatures={creatures}
+          onSelectPlant={handleSelectPlant}
+          onSelectCreature={handleSelectCreature}
+          onHydratePlant={handleHydratePlant}
+          onRegenerateFlora={handleRegenerateFlora}
+          onCaptureSnapshot={handleCaptureSnapshot}
+          onOpenTimeLapse={handleOpenTimeLapse}
+        />
+      )}
     </main>
   );
 }

@@ -186,6 +186,7 @@ export class TerrariumScene {
     // 9. Weather Particle System with procedural sound linkage
     this.weather = new WeatherSystem();
     this.weather.setWeather(this.currentConfig.weather);
+    this.weather.setEnabled(this.currentConfig.showWeatherParticles ?? true);
     this.weather.onLightningFlash = () => {
       terrariumAudio.playThunderRumble();
     };
@@ -286,6 +287,11 @@ export class TerrariumScene {
     if (newConfig.weather && newConfig.weather !== prev.weather) {
       this.weather.setWeather(newConfig.weather);
       terrariumAudio.updateAmbience(newConfig.weather, this.currentConfig.timeHours, this.currentConfig.humidity);
+    }
+
+    // Weather Particles Toggle
+    if (newConfig.showWeatherParticles !== undefined) {
+      this.weather.setEnabled(newConfig.showWeatherParticles);
     }
 
     // Time change
@@ -731,6 +737,14 @@ export class TerrariumScene {
 
   public getTimeHours(): number {
     return this.currentConfig.timeHours;
+  }
+
+  public getFloraGroup(): THREE.Group {
+    return this.floraGroup;
+  }
+
+  public getCanvasElement(): HTMLCanvasElement {
+    return this.renderer.domElement;
   }
 
   /**

@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Clock,
   Activity,
+  Video,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -24,6 +25,7 @@ interface PlantInspectorModalProps {
   onClose: () => void;
   onHydrate: (plantId: string) => void;
   onFocus: (specimen: PlantSpecimen) => void;
+  onOpenTimeLapse?: (plantId?: string) => void;
 }
 
 interface CustomTooltipProps {
@@ -81,6 +83,7 @@ export const PlantInspectorModal: React.FC<PlantInspectorModalProps> = ({
   onClose,
   onHydrate,
   onFocus,
+  onOpenTimeLapse,
 }) => {
   const historyData = specimen.growthHistory && specimen.growthHistory.length > 0
     ? specimen.growthHistory
@@ -247,18 +250,29 @@ export const PlantInspectorModal: React.FC<PlantInspectorModalProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex items-center gap-1.5 pt-1">
         <button
           onClick={() => onHydrate(specimen.id)}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors cursor-pointer shadow"
+          className="flex-1 flex items-center justify-center gap-1.5 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-medium py-2 px-2.5 rounded-lg transition-colors cursor-pointer shadow"
         >
           <Droplets className="w-3.5 h-3.5" />
-          <span>Hydrate Plant (+25%)</span>
+          <span>Hydrate (+25%)</span>
         </button>
+
+        {onOpenTimeLapse && (
+          <button
+            onClick={() => onOpenTimeLapse(specimen.id)}
+            className="flex items-center justify-center gap-1 bg-emerald-950 hover:bg-emerald-900 border border-emerald-700/80 text-emerald-300 text-xs font-medium py-2 px-2.5 rounded-lg transition-colors cursor-pointer shadow-xs"
+            title="Play growth time-lapse sequence for this specimen"
+          >
+            <Video className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Time-Lapse</span>
+          </button>
+        )}
 
         <button
           onClick={() => onFocus(specimen)}
-          className="flex items-center justify-center gap-1.5 bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-600 text-neutral-200 text-xs font-medium py-2 px-3 rounded-lg border border-neutral-700 transition-colors cursor-pointer"
+          className="flex items-center justify-center gap-1 bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-600 text-neutral-200 text-xs font-medium py-2 px-2.5 rounded-lg border border-neutral-700 transition-colors cursor-pointer"
           title="Zoom camera onto plant"
         >
           <Eye className="w-3.5 h-3.5" />

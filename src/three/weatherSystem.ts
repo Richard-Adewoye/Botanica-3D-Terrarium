@@ -32,6 +32,7 @@ export class WeatherSystem {
   public onLightningFlash?: () => void;
 
   private currentWeather: WeatherType = 'clear';
+  private enabled = true;
 
   constructor() {
     this.group = new THREE.Group();
@@ -145,11 +146,30 @@ export class WeatherSystem {
     this.group.add(this.sporePoints);
   }
 
+  public setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+    this.group.visible = enabled;
+    if (!enabled) {
+      this.lightningLight.intensity = 0;
+      this.isFlashing = false;
+    }
+  }
+
+  public isEnabled(): boolean {
+    return this.enabled;
+  }
+
   public setWeather(weather: WeatherType) {
     this.currentWeather = weather;
   }
 
   public update(delta: number, timeHours: number, humidity: number) {
+    if (!this.enabled) {
+      this.lightningLight.intensity = 0;
+      this.isFlashing = false;
+      return;
+    }
+
     const isNight = timeHours > 19 || timeHours < 5.5;
 
     // 1. Rain update

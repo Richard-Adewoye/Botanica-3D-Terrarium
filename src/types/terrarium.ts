@@ -59,6 +59,7 @@ export interface TerrariumConfig {
   timeCycleSpeed: number; // multiplier
   weather: WeatherType;
   humidity: number; // 0 to 100%
+  showWeatherParticles: boolean; // toggle 3D rain/fog/spore particle system
   lidOpenAmount: number; // 0 (closed) to 1 (fully lifted/exploded)
   cameraPreset: CameraPreset;
   autoRotate: boolean;
