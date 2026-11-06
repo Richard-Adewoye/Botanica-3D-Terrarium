@@ -1,1 +1,45 @@
 @import "tailwindcss";
+
+@keyframes floraBreathe {
+  0%, 100% {
+    transform: scale(1) translateY(0px);
+  }
+  50% {
+    transform: scale(1.008) translateY(-1.5px);
+  }
+}
+
+@keyframes ecosystemSway {
+  0%, 100% {
+    transform: rotate(0deg) skew(0deg, 0deg);
+  }
+  33% {
+    transform: rotate(0.25deg) skew(0.1deg, 0.1deg);
+  }
+  66% {
+    transform: rotate(-0.25deg) skew(-0.1deg, -0.1deg);
+  }
+}
+
+@keyframes organicGlowPulse {
+  0%, 100% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.4));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.8));
+  }
+}
+
+.animate-flora-breathe {
+  animation: floraBreathe 7s ease-in-out infinite;
+}
+
+.animate-ecosystem-sway {
+  animation: ecosystemSway 10s ease-in-out infinite;
+}
+
+.animate-organic-pulse {
+  animation: organicGlowPulse 4s ease-in-out infinite;
+}

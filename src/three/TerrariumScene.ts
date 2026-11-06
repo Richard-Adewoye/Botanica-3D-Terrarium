@@ -635,14 +635,24 @@ export class TerrariumScene {
     this.currentLidY = THREE.MathUtils.damp(this.currentLidY, this.targetLidY, 5.0, delta);
     this.vessel.lidGroup.position.y = this.currentLidY;
 
-    // 4. Subtle procedural wind sway on flora
+    // 4. Multi-harmonic procedural wind sway & organic breathing pulse on flora
     const windSpeed = this.currentConfig.weather === 'storm' ? 3.5 : 1.2;
     const windStrength = this.currentConfig.weather === 'storm' ? 0.04 : 0.015;
 
     this.floraGroup.children.forEach((child, idx) => {
       const offset = (child.userData?.animOffset as number) || idx;
-      const sway = Math.sin(elapsedTime * windSpeed + offset) * windStrength;
-      child.rotation.z = sway;
+      const swayZ = Math.sin(elapsedTime * windSpeed + offset) * windStrength;
+      const swayX = Math.cos(elapsedTime * (windSpeed * 0.7) + offset * 1.3) * (windStrength * 0.5);
+      const breathPulse = 1 + Math.sin(elapsedTime * 1.1 + offset * 0.7) * 0.012;
+
+      child.rotation.z = swayZ;
+      child.rotation.x = swayX;
+
+      // Organic breathing scale modulation
+      const orig = child.userData?.originalScale as THREE.Vector3 | undefined;
+      if (orig) {
+        child.scale.set(orig.x * breathPulse, orig.y * breathPulse, orig.z * breathPulse);
+      }
 
       const isNight = this.currentConfig.timeHours > 19 || this.currentConfig.timeHours < 5.5;
       const bioLight = child.userData?.bioLight as THREE.PointLight | undefined;

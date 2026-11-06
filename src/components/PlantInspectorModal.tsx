@@ -104,7 +104,7 @@ export const PlantInspectorModal: React.FC<PlantInspectorModalProps> = ({
       <div className="flex items-start justify-between gap-2 border-b border-neutral-800 pb-2.5">
         <div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded animate-organic-pulse">
               {specimen.type}
             </span>
             <span className="text-[10px] font-mono text-neutral-400 bg-neutral-800/60 px-1.5 py-0.5 rounded">

@@ -78,7 +78,7 @@ export const TerrariumCanvas: React.FC<TerrariumCanvasProps> = ({
   return (
     <div
       ref={mountRef}
-      className="absolute inset-0 w-full h-full overflow-hidden select-none cursor-grab active:cursor-grabbing"
+      className="absolute inset-0 w-full h-full overflow-hidden select-none cursor-grab active:cursor-grabbing animate-flora-breathe"
       tabIndex={0}
       aria-label="3D Interactive Terrarium Scene"
     />
