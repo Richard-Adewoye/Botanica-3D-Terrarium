@@ -500,6 +500,58 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                   />
                   <span className="text-xs font-mono text-neutral-300 w-10 text-right">{config.humidity}%</span>
                 </div>
+
+                {/* Bloom Intensity Post-Processing Slider */}
+                <div className="pt-2 border-t border-neutral-800/80 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span className="text-xs font-medium text-neutral-200">Bloom Intensity (Glow Effect):</span>
+                      <span className="text-xs font-mono text-amber-300 font-semibold">
+                        {Math.round((config.bloomIntensity ?? 0.45) * 100)}%
+                      </span>
+                    </div>
+
+                    {/* Bloom Presets */}
+                    <div className="flex items-center gap-1.5">
+                      {[
+                        { label: 'Off', val: 0.0 },
+                        { label: 'Subtle', val: 0.25 },
+                        { label: 'Radiant', val: 0.5 },
+                        { label: 'Dreamy', val: 0.85 },
+                        { label: 'Supernova', val: 1.3 },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          onClick={() => onUpdateConfig({ bloomIntensity: preset.val })}
+                          className={`px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors cursor-pointer ${
+                            Math.abs((config.bloomIntensity ?? 0.45) - preset.val) < 0.04
+                              ? 'bg-amber-950/90 border-amber-500 text-amber-300 font-semibold shadow-xs'
+                              : 'bg-neutral-800/80 border-neutral-700/80 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-neutral-400 w-28 shrink-0">Post-Process Glow:</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1.5"
+                      step="0.05"
+                      value={config.bloomIntensity ?? 0.45}
+                      onChange={(e) => onUpdateConfig({ bloomIntensity: parseFloat(e.target.value) })}
+                      className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                    />
+                    <span className="text-xs font-mono text-neutral-300 w-10 text-right">
+                      {(config.bloomIntensity ?? 0.45).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 

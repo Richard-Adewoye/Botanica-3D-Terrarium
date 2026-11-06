@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+
 import {
   PlantSpecimen,
   CreatureSpecimen,
@@ -35,6 +40,10 @@ export class TerrariumScene {
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
   private clock: THREE.Clock;
+
+  // Post-Processing
+  private composer: EffectComposer | null = null;
+  private bloomPass: UnrealBloomPass | null = null;
 
   // Subsystems
   private lighting: LightingRig;
@@ -182,6 +191,23 @@ export class TerrariumScene {
     };
     this.scene.add(this.weather.group);
 
+    // 10. Post-Processing Bloom Pipeline
+    if (!this.isSoftwareGl) {
+      const renderPass = new RenderPass(this.scene, this.camera);
+      const resolution = new THREE.Vector2(container.clientWidth, container.clientHeight);
+      this.bloomPass = new UnrealBloomPass(
+        resolution,
+        this.currentConfig.bloomIntensity ?? 0.45,
+        0.4,
+        0.85
+      );
+
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.addPass(renderPass);
+      this.composer.addPass(this.bloomPass);
+      this.composer.addPass(new OutputPass());
+    }
+
     // Sync initial audio
     terrariumAudio.updateAmbience(
       this.currentConfig.weather,
@@ -278,7 +304,6 @@ export class TerrariumScene {
     // Lid open slider
     if (newConfig.lidOpenAmount !== undefined) {
       this.targetLidY = 0.18 + newConfig.lidOpenAmount * 2.0;
-      // Opening the lid triggers a gentle air rush rustle
       if (Math.abs(newConfig.lidOpenAmount - prev.lidOpenAmount) > 0.05) {
         terrariumAudio.playFloraRustle(0.5);
       }
@@ -317,6 +342,13 @@ export class TerrariumScene {
     }
     if (newConfig.soundLayers) {
       terrariumAudio.setSoundLayers(newConfig.soundLayers);
+    }
+
+    // Post-Processing Bloom Intensity
+    if (newConfig.bloomIntensity !== undefined) {
+      if (this.bloomPass) {
+        this.bloomPass.strength = newConfig.bloomIntensity;
+      }
     }
 
     // Plant selection highlight
@@ -544,7 +576,21 @@ export class TerrariumScene {
     this.camera.updateProjectionMatrix();
 
     this.renderer.setSize(width, height);
+    if (this.composer) {
+      this.composer.setSize(width, height);
+    }
+    if (this.bloomPass) {
+      this.bloomPass.resolution.set(width, height);
+    }
   };
+
+  private renderSceneFrame() {
+    if (this.composer && this.bloomPass && (this.currentConfig.bloomIntensity ?? 0) > 0.01) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
+  }
 
   private tick = () => {
     if (this.isDisposed) return;
@@ -600,14 +646,13 @@ export class TerrariumScene {
       }
     });
 
-    // 5. Animate Micro-Fauna (Beetle walking kinematics & Snail gliding)
+    // 5. Animate Micro-Fauna
     this.creatureSoundTimer += delta;
     this.creaturesGroup.children.forEach((cGroup) => {
       const uData = cGroup.userData as CreatureUserData;
       if (!uData || !uData.pathPoints || uData.pathPoints.length < 2) return;
 
       const pts = uData.pathPoints;
-      // Advance along path
       const speed = uData.creatureType === 'beetle' ? 0.08 : 0.025;
       uData.pathProgress = (uData.pathProgress + delta * speed * 0.15) % 1.0;
 
@@ -622,28 +667,24 @@ export class TerrariumScene {
 
       cGroup.position.lerpVectors(p0, p1, t);
 
-      // Orient toward movement heading
       const dirX = p1.x - p0.x;
       const dirZ = p1.z - p0.z;
       const targetAngle = Math.atan2(dirX, dirZ);
       cGroup.rotation.y = THREE.MathUtils.damp(cGroup.rotation.y, targetAngle, 3.0, delta);
 
       if (uData.creatureType === 'beetle') {
-        // Articulate 6 legs
         if (uData.legs) {
           uData.legs.forEach((leg, idx) => {
             const phase = idx % 2 === 0 ? 0 : Math.PI;
             leg.rotation.x = Math.sin(elapsedTime * 14 + phase) * 0.35;
           });
         }
-        // Twitch antennae
         if (uData.antennae) {
           uData.antennae.forEach((ant, idx) => {
             ant.rotation.y = Math.sin(elapsedTime * 6 + idx * 2) * 0.2;
           });
         }
       } else if (uData.creatureType === 'snail') {
-        // Gentle bob on eye stalks
         if (uData.eyeStalks) {
           uData.eyeStalks.forEach((stalk, idx) => {
             stalk.rotation.z = Math.sin(elapsedTime * 2.5 + idx) * 0.12;
@@ -659,8 +700,8 @@ export class TerrariumScene {
     // 7. Update Controls
     this.controls.update();
 
-    // 8. Render frame
-    this.renderer.render(this.scene, this.camera);
+    // 8. Render frame with Post-Processing Bloom
+    this.renderSceneFrame();
 
     // Software WebGL pacing guard
     if (this.isSoftwareGl) {
@@ -697,7 +738,7 @@ export class TerrariumScene {
    * Renders immediately before toDataURL to guarantee a clean, non-cleared frame.
    */
   public captureSnapshot(): string {
-    this.renderer.render(this.scene, this.camera);
+    this.renderSceneFrame();
     return this.renderer.domElement.toDataURL('image/png');
   }
 
@@ -712,6 +753,7 @@ export class TerrariumScene {
     this.lighting.dispose();
     this.weather.dispose();
     this.controls.dispose();
+    this.composer?.dispose();
     this.renderer.dispose();
 
     if (this.container && this.renderer.domElement.parentNode === this.container) {

@@ -66,6 +66,7 @@ export interface TerrariumConfig {
   soundEnabled: boolean;
   soundVolume: number;
   soundLayers: SoundLayersConfig;
+  bloomIntensity: number; // 0.0 to 1.5
   selectedPlantId: string | null;
   selectedCreatureId: string | null;
   showCreatures: boolean;

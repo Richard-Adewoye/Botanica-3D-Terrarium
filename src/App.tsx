@@ -41,6 +41,7 @@ export default function App() {
     soundEnabled: true,
     soundVolume: 0.5,
     soundLayers: { ...DEFAULT_SOUND_LAYERS },
+    bloomIntensity: 0.45,
     selectedPlantId: null,
     selectedCreatureId: null,
     showCreatures: true,
