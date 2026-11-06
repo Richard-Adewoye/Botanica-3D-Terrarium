@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MicroclimateForecastPanel } from './MicroclimateForecastPanel';
 import {
   TerrariumConfig,
   PlantSpecimen,
@@ -610,6 +611,9 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* 24-Hour Microclimate Predictive Forecast Panel */}
+                <MicroclimateForecastPanel config={config} onUpdateConfig={onUpdateConfig} />
               </div>
             )}
 
