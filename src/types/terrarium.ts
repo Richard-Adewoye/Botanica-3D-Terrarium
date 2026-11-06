@@ -6,6 +6,13 @@ export type CameraPreset = 'default' | 'closeup' | 'interior' | 'top' | 'isometr
 
 export type VesselStyle = 'hexagonal' | 'bell_jar' | 'geometric_dome';
 
+export interface GrowthHistoryPoint {
+  timestamp: string; // e.g. "02:00", "06:00", "12:00"
+  health: number; // 0 to 100
+  moisture: number; // 0 to 100
+  event?: string; // e.g. "Hydrated", "Dew Absorption", "Photosynthesis", "Dry Spell"
+}
+
 export interface PlantSpecimen {
   id: string;
   name: string;
@@ -19,6 +26,7 @@ export interface PlantSpecimen {
   bloomProgress: number; // 0 to 1
   description: string;
   glowColor?: string;
+  growthHistory: GrowthHistoryPoint[];
 }
 
 export interface CreatureSpecimen {

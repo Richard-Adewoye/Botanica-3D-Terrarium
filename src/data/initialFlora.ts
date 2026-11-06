@@ -13,6 +13,14 @@ export const INITIAL_SPECIMENS: PlantSpecimen[] = [
     moisture: 72,
     bloomProgress: 0.85,
     description: 'A miniature twisted mountain juniper featuring deadwood jin and layered cloud foliage.',
+    growthHistory: [
+      { timestamp: '00:00', health: 91, moisture: 64, event: 'Night Rest' },
+      { timestamp: '04:00', health: 92, moisture: 68, event: 'Pre-dawn Dew' },
+      { timestamp: '08:00', health: 94, moisture: 75, event: 'Morning Sun' },
+      { timestamp: '12:00', health: 95, moisture: 68, event: 'Photosynthesis' },
+      { timestamp: '16:00', health: 96, moisture: 65, event: 'Transpiration' },
+      { timestamp: '19:00', health: 96, moisture: 72, event: 'Evening Cool' },
+    ],
   },
   {
     id: 'fern-1',
@@ -26,6 +34,14 @@ export const INITIAL_SPECIMENS: PlantSpecimen[] = [
     moisture: 84,
     bloomProgress: 0.9,
     description: 'Arching pinnate fronds with delicate unfurling fiddleheads thrive in humid microclimates.',
+    growthHistory: [
+      { timestamp: '00:00', health: 88, moisture: 78, event: 'Humid Condensation' },
+      { timestamp: '04:00', health: 89, moisture: 82, event: 'Canopy Droplets' },
+      { timestamp: '08:00', health: 90, moisture: 85, event: 'Frond Unfurling' },
+      { timestamp: '12:00', health: 91, moisture: 80, event: 'Warm Vapor' },
+      { timestamp: '16:00', health: 91, moisture: 76, event: 'Moisture Evaporation' },
+      { timestamp: '19:00', health: 92, moisture: 84, event: 'Microclimate Mist' },
+    ],
   },
   {
     id: 'succulent-1',
@@ -39,6 +55,14 @@ export const INITIAL_SPECIMENS: PlantSpecimen[] = [
     moisture: 65,
     bloomProgress: 0.7,
     description: 'Symmetrical rosette with fleshy seafoam petals tipped in rosy mineral blushes.',
+    growthHistory: [
+      { timestamp: '00:00', health: 96, moisture: 60, event: 'CAM Respiration' },
+      { timestamp: '04:00', health: 97, moisture: 62, event: 'Night Moisture Storage' },
+      { timestamp: '08:00', health: 97, moisture: 66, event: 'Solar Warming' },
+      { timestamp: '12:00', health: 98, moisture: 61, event: 'Farina Coating Active' },
+      { timestamp: '16:00', health: 98, moisture: 59, event: 'Blush Intensification' },
+      { timestamp: '19:00', health: 98, moisture: 65, event: 'Substrate Balance' },
+    ],
   },
   {
     id: 'mushroom-1',
@@ -53,6 +77,14 @@ export const INITIAL_SPECIMENS: PlantSpecimen[] = [
     bloomProgress: 1.0,
     glowColor: '#3bf5c0',
     description: 'Nocturnal luminescent fungi whose under-gills emit a calming cyan aura in low light.',
+    growthHistory: [
+      { timestamp: '00:00', health: 95, moisture: 89, event: 'Peak Bioluminescence' },
+      { timestamp: '04:00', health: 95, moisture: 90, event: 'Spore Dispersion' },
+      { timestamp: '08:00', health: 92, moisture: 86, event: 'Daylight Dormancy' },
+      { timestamp: '12:00', health: 91, moisture: 82, event: 'Shaded Protection' },
+      { timestamp: '16:00', health: 93, moisture: 84, event: 'Luciferin Synthesis' },
+      { timestamp: '19:00', health: 94, moisture: 88, event: 'Twilight Activation' },
+    ],
   },
   {
     id: 'crystal-1',
@@ -66,6 +98,14 @@ export const INITIAL_SPECIMENS: PlantSpecimen[] = [
     moisture: 50,
     bloomProgress: 1.0,
     description: 'Faceted violet quartz crystal cluster naturally ionizing and balancing terrarium soil.',
+    growthHistory: [
+      { timestamp: '00:00', health: 100, moisture: 52, event: 'Piezo Resonance' },
+      { timestamp: '04:00', health: 100, moisture: 53, event: 'Surface Condensation' },
+      { timestamp: '08:00', health: 100, moisture: 50, event: 'Refractive Focus' },
+      { timestamp: '12:00', health: 100, moisture: 48, event: 'Thermal Equilibrium' },
+      { timestamp: '16:00', health: 100, moisture: 49, event: 'Prismatic Dispersion' },
+      { timestamp: '19:00', health: 100, moisture: 50, event: 'Soil Ionization' },
+    ],
   },
   {
     id: 'pitcher-1',
@@ -79,5 +119,13 @@ export const INITIAL_SPECIMENS: PlantSpecimen[] = [
     moisture: 79,
     bloomProgress: 0.6,
     description: 'Curved pendulous urns featuring vaulted hoods and slippery peristome nectar rims.',
+    growthHistory: [
+      { timestamp: '00:00', health: 85, moisture: 75, event: 'Urn Secretion' },
+      { timestamp: '04:00', health: 86, moisture: 78, event: 'Nectar Dew Lure' },
+      { timestamp: '08:00', health: 87, moisture: 82, event: 'Tendril Expansion' },
+      { timestamp: '12:00', health: 88, moisture: 77, event: 'Digestive Enzyme Pool' },
+      { timestamp: '16:00', health: 88, moisture: 74, event: 'Vessel Transpiration' },
+      { timestamp: '19:00', health: 89, moisture: 79, event: 'Peristome Moistening' },
+    ],
   },
 ];

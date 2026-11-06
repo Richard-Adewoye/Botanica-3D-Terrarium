@@ -386,6 +386,23 @@ export class TerrariumScene {
     specimen.moisture = Math.min(100, specimen.moisture + 25);
     specimen.health = Math.min(100, specimen.health + 5);
 
+    // Record growth history point
+    const h = Math.floor(this.currentConfig.timeHours);
+    const m = Math.floor((this.currentConfig.timeHours % 1) * 60);
+    const timeLabel = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    if (!specimen.growthHistory) {
+      specimen.growthHistory = [];
+    }
+    specimen.growthHistory.push({
+      timestamp: timeLabel,
+      health: specimen.health,
+      moisture: specimen.moisture,
+      event: 'Hydrated (+25%)',
+    });
+    if (specimen.growthHistory.length > 12) {
+      specimen.growthHistory.shift();
+    }
+
     // Spring bounce animation on the targeted plant group
     const plantMesh = this.floraGroup.getObjectByName(`plant-${plantId}`);
     if (plantMesh) {

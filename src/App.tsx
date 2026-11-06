@@ -76,14 +76,38 @@ export default function App() {
     if (sceneRef.current) {
       sceneRef.current.hydratePlant(plantId);
     }
+    const h = Math.floor(config.timeHours);
+    const m = Math.floor((config.timeHours % 1) * 60);
+    const timeLabel = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
     setSpecimens((prev) =>
-      prev.map((s) =>
-        s.id === plantId
-          ? { ...s, moisture: Math.min(100, s.moisture + 25), health: Math.min(100, s.health + 5) }
-          : s
-      )
+      prev.map((s) => {
+        if (s.id !== plantId) return s;
+        const newMoisture = Math.min(100, s.moisture + 25);
+        const newHealth = Math.min(100, s.health + 5);
+        const newHistory = [
+          ...(s.growthHistory || []),
+          {
+            timestamp: timeLabel,
+            health: newHealth,
+            moisture: newMoisture,
+            event: 'Hydrated (+25%)',
+          },
+        ].slice(-12);
+
+        const updated = {
+          ...s,
+          moisture: newMoisture,
+          health: newHealth,
+          growthHistory: newHistory,
+        };
+
+        // Also sync currently inspected plant modal
+        setSelectedPlant((curr) => (curr && curr.id === plantId ? updated : curr));
+        return updated;
+      })
     );
-  }, []);
+  }, [config.timeHours]);
 
   const handleFocusPlant = useCallback((specimen: PlantSpecimen) => {
     if (sceneRef.current) {
@@ -116,8 +140,14 @@ export default function App() {
       rotationY: Math.random() * Math.PI * 2,
       moisture: Math.floor(55 + Math.random() * 40),
       health: Math.floor(88 + Math.random() * 12),
+      growthHistory: s.growthHistory.map((pt) => ({
+        ...pt,
+        health: Math.min(100, Math.max(40, pt.health + Math.floor((Math.random() - 0.5) * 8))),
+        moisture: Math.min(100, Math.max(30, pt.moisture + Math.floor((Math.random() - 0.5) * 12))),
+      })),
     }));
     setSpecimens(randomized);
+    setSelectedPlant((curr) => (curr ? randomized.find((r) => r.id === curr.id) || null : null));
     handleUpdateConfig({ seed: newSeed });
   }, [handleUpdateConfig]);
 
