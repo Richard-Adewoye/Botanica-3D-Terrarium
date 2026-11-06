@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MicroclimateForecastPanel } from './MicroclimateForecastPanel';
+import { DailyTasksWidget } from './DailyTasksWidget';
 import {
   TerrariumConfig,
   PlantSpecimen,
@@ -8,6 +9,7 @@ import {
   CameraPreset,
   SoundLayerId,
   SoundLayersConfig,
+  DailyTask,
 } from '../types/terrarium';
 import {
   Sun,
@@ -34,6 +36,7 @@ import {
   SlidersHorizontal,
   Volume1,
   Video,
+  Trophy,
 } from 'lucide-react';
 import { DEFAULT_SOUND_LAYERS, terrariumAudio } from '../audio/proceduralAudio';
 
@@ -42,6 +45,8 @@ interface ControlOverlayProps {
   onUpdateConfig: (newConfig: Partial<TerrariumConfig>) => void;
   specimens: PlantSpecimen[];
   creatures: CreatureSpecimen[];
+  dailyTasks?: DailyTask[];
+  onCompleteTask?: (taskId: string) => void;
   onSelectPlant: (specimen: PlantSpecimen | null) => void;
   onSelectCreature: (creature: CreatureSpecimen | null) => void;
   onHydratePlant: (plantId: string) => void;
@@ -50,13 +55,15 @@ interface ControlOverlayProps {
   onOpenTimeLapse?: (plantId?: string) => void;
 }
 
-type TabType = 'time' | 'weather' | 'flora' | 'camera' | 'audio';
+type TabType = 'tasks' | 'time' | 'weather' | 'flora' | 'camera' | 'audio';
 
 export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   config,
   onUpdateConfig,
   specimens,
   creatures,
+  dailyTasks,
+  onCompleteTask,
   onSelectPlant,
   onSelectCreature,
   onHydratePlant,
@@ -292,6 +299,21 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           <div className="flex items-center justify-between border-b border-neutral-800/90 px-3 pt-2 bg-neutral-950/70 overflow-x-auto gap-1">
             <div className="flex items-center gap-1">
               <button
+                onClick={() => setActiveTab('tasks')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg transition-colors cursor-pointer border-b-2 ${
+                  activeTab === 'tasks'
+                    ? 'border-amber-500 text-white bg-neutral-900 font-semibold'
+                    : 'border-transparent text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/50'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>Daily Tasks</span>
+                <span className="text-[9px] font-mono text-amber-300 bg-amber-950 border border-amber-800/80 px-1.5 py-0.2 rounded-full">
+                  {(dailyTasks || []).filter((t) => t.completed).length}/{(dailyTasks || []).length}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('time')}
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg transition-colors cursor-pointer border-b-2 ${
                   activeTab === 'time'
@@ -384,6 +406,16 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
 
           {/* Tab Panel Content */}
           <div className="p-4 bg-neutral-900 min-h-[125px] flex flex-col justify-center">
+            {/* 0. Daily Tasks Tab */}
+            {activeTab === 'tasks' && (
+              <DailyTasksWidget
+                tasks={dailyTasks || []}
+                onCompleteTask={onCompleteTask || (() => {})}
+                onOpenTimeLapse={onOpenTimeLapse}
+                onCaptureSnapshot={onCaptureSnapshot}
+              />
+            )}
+
             {/* 1. Time & Lighting Tab */}
             {activeTab === 'time' && (
               <div className="space-y-3">

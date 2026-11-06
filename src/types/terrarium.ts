@@ -13,6 +13,16 @@ export interface GrowthHistoryPoint {
   event?: string; // e.g. "Hydrated", "Dew Absorption", "Photosynthesis", "Dry Spell"
 }
 
+export interface DailyTask {
+  id: string;
+  title: string;
+  category: 'hydration' | 'weather' | 'timelapse' | 'observation' | 'camera';
+  description: string;
+  rewardText: string;
+  completed: boolean;
+  actionHint: string;
+}
+
 export interface PlantSpecimen {
   id: string;
   name: string;

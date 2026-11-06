@@ -12,7 +12,7 @@ import { TimeLapseModal } from './components/TimeLapseModal';
 import { TerrariumScene } from './three/TerrariumScene';
 import { INITIAL_SPECIMENS } from './data/initialFlora';
 import { INITIAL_CREATURES } from './data/initialCreatures';
-import { PlantSpecimen, CreatureSpecimen, TerrariumConfig } from './types/terrarium';
+import { PlantSpecimen, CreatureSpecimen, TerrariumConfig, DailyTask } from './types/terrarium';
 import { DEFAULT_SOUND_LAYERS, terrariumAudio } from './audio/proceduralAudio';
 import { Camera, Check } from 'lucide-react';
 
@@ -28,6 +28,37 @@ export default function App() {
   // Time-Lapse Studio state
   const [isTimeLapseActive, setIsTimeLapseActive] = useState<boolean>(false);
   const [timeLapseTargetPlantId, setTimeLapseTargetPlantId] = useState<string | null>(null);
+
+  // Daily Tasks state
+  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([
+    {
+      id: 'task-hydrate',
+      title: 'Hydrate Terrarium Flora',
+      category: 'hydration',
+      description: 'Water any plant specimen in the terrarium to boost root hydration.',
+      rewardText: '+10% All Flora Vitality Surge',
+      completed: false,
+      actionHint: 'Click a plant specimen and select Hydrate (+25%)',
+    },
+    {
+      id: 'task-weather',
+      title: 'Atmospheric Weather Shift',
+      category: 'weather',
+      description: 'Switch terrarium atmosphere to Rain, Storm, or Spores mode.',
+      rewardText: 'Golden Spores & Radiant Bloom Burst',
+      completed: false,
+      actionHint: 'Select Rain, Storm, or Spores in Weather tab',
+    },
+    {
+      id: 'task-timelapse',
+      title: 'Cinematic Growth Recording',
+      category: 'timelapse',
+      description: 'Launch the Flora Growth Time-Lapse Studio or capture a PNG snapshot.',
+      rewardText: 'Supernova Bloom Intensity & Max Health',
+      completed: false,
+      actionHint: 'Press "T" for Time-Lapse Studio or "S" for Snapshot',
+    },
+  ]);
 
   // Snapshot visual feedback
   const [isShutterFlashing, setIsShutterFlashing] = useState(false);
@@ -54,9 +85,53 @@ export default function App() {
     seed: 42,
   });
 
+  const handleCompleteTask = useCallback((taskId: string) => {
+    setDailyTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== taskId || t.completed) return t;
+
+        // Play celebratory chime
+        terrariumAudio.playInteractionTone(880);
+
+        // Apply task reward
+        if (taskId === 'task-hydrate') {
+          setSpecimens((currSpecimens) =>
+            currSpecimens.map((s) => ({
+              ...s,
+              health: Math.min(100, s.health + 10),
+              moisture: Math.min(100, s.moisture + 10),
+              growthHistory: [
+                ...(s.growthHistory || []),
+                {
+                  timestamp: 'Reward',
+                  health: Math.min(100, s.health + 10),
+                  moisture: Math.min(100, s.moisture + 10),
+                  event: '🏆 Daily Task: +10% Vitality',
+                },
+              ].slice(-12),
+            }))
+          );
+          setSnapshotToast('🎉 Daily Task Completed: +10% Vitality Surge applied to all flora!');
+        } else if (taskId === 'task-weather') {
+          setConfig((c) => ({ ...c, bloomIntensity: 0.85, weather: 'spores' }));
+          setSnapshotToast('🎉 Daily Task Completed: Golden Spores & Radiant Bloom unlocked!');
+        } else if (taskId === 'task-timelapse') {
+          setConfig((c) => ({ ...c, bloomIntensity: 1.2 }));
+          setSnapshotToast('🎉 Daily Task Completed: Supernova Bloom Burst unlocked!');
+        }
+
+        setTimeout(() => setSnapshotToast(null), 4200);
+        return { ...t, completed: true };
+      })
+    );
+  }, []);
+
   const handleUpdateConfig = useCallback((newPartial: Partial<TerrariumConfig>) => {
     setConfig((prev) => ({ ...prev, ...newPartial }));
-  }, []);
+    if (newPartial.weather && newPartial.weather !== 'clear') {
+      handleCompleteTask('task-weather');
+    }
+  }, [handleCompleteTask]);
 
   const handleSelectPlant = useCallback((specimen: PlantSpecimen | null) => {
     setSelectedPlant(specimen);
@@ -84,6 +159,7 @@ export default function App() {
     if (sceneRef.current) {
       sceneRef.current.hydratePlant(plantId);
     }
+    handleCompleteTask('task-hydrate');
     const h = Math.floor(config.timeHours);
     const m = Math.floor((config.timeHours % 1) * 60);
     const timeLabel = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
@@ -115,7 +191,7 @@ export default function App() {
         return updated;
       })
     );
-  }, [config.timeHours]);
+  }, [config.timeHours, handleCompleteTask]);
 
   const handleFocusPlant = useCallback((specimen: PlantSpecimen) => {
     if (sceneRef.current) {
@@ -162,7 +238,8 @@ export default function App() {
   const handleOpenTimeLapse = useCallback((plantId?: string) => {
     setTimeLapseTargetPlantId(plantId || null);
     setIsTimeLapseActive(true);
-  }, []);
+    handleCompleteTask('task-timelapse');
+  }, [handleCompleteTask]);
 
   const handleCloseTimeLapse = useCallback(() => {
     setIsTimeLapseActive(false);
@@ -171,6 +248,7 @@ export default function App() {
   // Snapshot Capture logic
   const handleCaptureSnapshot = useCallback(() => {
     if (!sceneRef.current) return;
+    handleCompleteTask('task-timelapse');
 
     // 1. Play realistic mechanical camera shutter sound
     terrariumAudio.playShutterSound();
@@ -309,6 +387,8 @@ export default function App() {
           onUpdateConfig={handleUpdateConfig}
           specimens={specimens}
           creatures={creatures}
+          dailyTasks={dailyTasks}
+          onCompleteTask={handleCompleteTask}
           onSelectPlant={handleSelectPlant}
           onSelectCreature={handleSelectCreature}
           onHydratePlant={handleHydratePlant}
