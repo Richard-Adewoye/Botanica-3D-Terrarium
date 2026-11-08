@@ -42,6 +42,7 @@ import {
   Trophy,
   History,
   Dna,
+  Grid,
 } from 'lucide-react';
 import { DEFAULT_SOUND_LAYERS, terrariumAudio } from '../audio/proceduralAudio';
 
@@ -411,6 +412,19 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               >
                 <Camera className="w-3 h-3 text-sky-400" />
                 <span>Snapshot</span>
+              </button>
+
+              <button
+                onClick={() => onUpdateConfig({ showHeatmap: !(config.showHeatmap ?? false) })}
+                className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border transition-colors cursor-pointer ${
+                  (config.showHeatmap ?? false)
+                    ? 'bg-emerald-950 border-emerald-700 text-emerald-300 font-semibold'
+                    : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:text-neutral-200'
+                }`}
+                title="Toggle 3D Growth Heatmap Grid Overlay"
+              >
+                <Grid className={`w-3 h-3 ${(config.showHeatmap ?? false) ? 'text-emerald-400' : ''}`} />
+                <span>Heatmap</span>
               </button>
 
               <button
@@ -836,6 +850,102 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                         <span className="text-xs font-mono text-purple-300 w-10 text-right font-semibold">
                           {Math.round((config.mutationRate ?? 0.5) * 100)}%
                         </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3D Growth Heatmap Overlay Card */}
+                <div className="p-2.5 rounded-xl border border-neutral-800 bg-neutral-950/80 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800/80 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 rounded-md bg-emerald-950 border border-emerald-800 text-emerald-400 shrink-0">
+                        <Grid className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-neutral-100">3D Growth Heatmap Overlay:</span>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
+                            (config.showHeatmap ?? false)
+                              ? 'bg-emerald-950 border-emerald-700 text-emerald-300 font-semibold'
+                              : 'bg-neutral-800 border-neutral-700 text-neutral-400'
+                          }`}>
+                            {(config.showHeatmap ?? false) ? 'Grid Active' : 'Hidden'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">
+                          Renders a spatial 3D terrain grid color-coding soil nutrient density or microclimate humidity levels.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => onUpdateConfig({ showHeatmap: !(config.showHeatmap ?? false) })}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        (config.showHeatmap ?? false) ? 'bg-emerald-500' : 'bg-neutral-700'
+                      }`}
+                      role="switch"
+                      aria-checked={config.showHeatmap ?? false}
+                      title="Toggle 3D Growth Heatmap Grid Overlay"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                          (config.showHeatmap ?? false) ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Metric Mode Selector & Heatmap Legend */}
+                  {(config.showHeatmap ?? false) && (
+                    <div className="space-y-2 pt-0.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span className="text-[11px] text-neutral-300">Heatmap Analysis Metric:</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => onUpdateConfig({ heatmapMetric: 'nutrients' })}
+                            className={`px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-colors cursor-pointer ${
+                              (config.heatmapMetric || 'nutrients') === 'nutrients'
+                                ? 'bg-emerald-950 border-emerald-600 text-emerald-300 font-semibold'
+                                : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                            }`}
+                          >
+                            🌱 Soil Nutrients
+                          </button>
+                          <button
+                            onClick={() => onUpdateConfig({ heatmapMetric: 'humidity' })}
+                            className={`px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-colors cursor-pointer ${
+                              config.heatmapMetric === 'humidity'
+                                ? 'bg-sky-950 border-sky-600 text-sky-300 font-semibold'
+                                : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                            }`}
+                          >
+                            💧 Humidity Levels
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Heatmap Spectrum Legend Bar */}
+                      <div className="p-2 rounded-lg bg-neutral-900/90 border border-neutral-800 space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-neutral-400 font-mono">
+                          <span>Low Level</span>
+                          <span>Optimal Zone</span>
+                          <span>High Density</span>
+                        </div>
+                        <div className="h-2 rounded-full w-full overflow-hidden bg-neutral-950 shadow-inner">
+                          <div
+                            className={`h-full w-full transition-all duration-300 ${
+                              (config.heatmapMetric || 'nutrients') === 'nutrients'
+                                ? 'bg-gradient-to-r from-amber-700 via-yellow-500 to-emerald-400'
+                                : 'bg-gradient-to-r from-orange-500 via-teal-400 to-indigo-500'
+                            }`}
+                          />
+                        </div>
+                        <p className="text-[10px] text-neutral-400 italic">
+                          {(config.heatmapMetric || 'nutrients') === 'nutrients'
+                            ? 'Green/Gold areas indicate high root nutrient availability & optimal plant placement zones.'
+                            : 'Teal/Indigo zones indicate high humidity transpiration & condensation accumulation areas.'}
+                        </p>
                       </div>
                     </div>
                   )}

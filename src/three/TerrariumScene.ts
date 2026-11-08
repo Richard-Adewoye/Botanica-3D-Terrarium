@@ -52,6 +52,9 @@ export class TerrariumScene {
   private floraGroup: THREE.Group;
   private mossGroup: THREE.Group;
   private creaturesGroup: THREE.Group;
+  private heatmapGroup!: THREE.Group;
+  private heatmapTiles: Array<{ mesh: THREE.Mesh; gridX: number; gridZ: number; worldX: number; worldZ: number }> = [];
+  private heatmapWireframe: THREE.LineSegments | null = null;
 
   // Interactive Selection
   private raycaster: THREE.Raycaster;
@@ -183,6 +186,11 @@ export class TerrariumScene {
     this.scene.add(this.creaturesGroup);
     this.rebuildCreatures();
 
+    // 8b. Growth Heatmap Grid Overlay
+    this.heatmapGroup = this.createHeatmapOverlay();
+    this.scene.add(this.heatmapGroup);
+    this.updateHeatmapValues();
+
     // 9. Weather Particle System with procedural sound linkage
     this.weather = new WeatherSystem();
     this.weather.setWeather(this.currentConfig.weather);
@@ -257,6 +265,153 @@ export class TerrariumScene {
       }
       this.floraGroup.add(plantMesh);
     });
+
+    if (this.heatmapGroup) {
+      this.updateHeatmapValues();
+    }
+  }
+
+  private createHeatmapOverlay(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'heatmap-overlay';
+    group.position.y = 0.515;
+
+    const gridRes = 12; // 12x12 grid
+    const tileSize = 0.22;
+    const halfSpan = (gridRes * tileSize) / 2;
+
+    const tileGeo = new THREE.PlaneGeometry(tileSize * 0.9, tileSize * 0.9);
+    tileGeo.rotateX(-Math.PI / 2);
+
+    for (let r = 0; r < gridRes; r++) {
+      for (let c = 0; c < gridRes; c++) {
+        const worldX = (c + 0.5) * tileSize - halfSpan;
+        const worldZ = (r + 0.5) * tileSize - halfSpan;
+
+        // Mask tiles to terrarium hexagonal/circular boundary (~1.35m radius)
+        const distFromCenter = Math.sqrt(worldX * worldX + worldZ * worldZ);
+        if (distFromCenter > 1.35) continue;
+
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0x10b981,
+          transparent: true,
+          opacity: 0.55,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        });
+
+        const mesh = new THREE.Mesh(tileGeo, mat);
+        mesh.position.set(worldX, 0, worldZ);
+        group.add(mesh);
+
+        this.heatmapTiles.push({
+          mesh,
+          gridX: c,
+          gridZ: r,
+          worldX,
+          worldZ,
+        });
+      }
+    }
+
+    // Grid wireframe overlay for sleek HUD aesthetic
+    const wireGeo = new THREE.WireframeGeometry(
+      new THREE.PlaneGeometry(halfSpan * 2, halfSpan * 2, gridRes, gridRes)
+    );
+    wireGeo.rotateX(-Math.PI / 2);
+    const wireMat = new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false,
+    });
+    this.heatmapWireframe = new THREE.LineSegments(wireGeo, wireMat);
+    group.add(this.heatmapWireframe);
+
+    group.visible = this.currentConfig.showHeatmap ?? false;
+    return group;
+  }
+
+  public updateHeatmapValues() {
+    if (!this.heatmapGroup) return;
+
+    const metric = this.currentConfig.heatmapMetric || 'nutrients';
+    const isNutrients = metric === 'nutrients';
+    const currHumidity = this.currentConfig.humidity ?? 55;
+
+    this.heatmapTiles.forEach((tile) => {
+      let score = 0;
+
+      if (isNutrients) {
+        // Soil Nutrient Density Calculation
+        this.specimens.forEach((s) => {
+          const dx = tile.worldX - s.position[0];
+          const dz = tile.worldZ - s.position[2];
+          const distSq = dx * dx + dz * dz;
+          const rootInfluence = (s.health / 100) * Math.exp(-distSq / 0.35);
+          score += rootInfluence;
+        });
+
+        const organicNoise =
+          Math.sin(tile.worldX * 5.0) * Math.cos(tile.worldZ * 5.0) * 0.15 +
+          Math.sin(tile.worldX * 12.0 + tile.worldZ * 8.0) * 0.08;
+        score = Math.min(1.0, Math.max(0.08, score * 0.45 + 0.22 + organicNoise));
+
+        const c = new THREE.Color();
+        if (score < 0.38) {
+          const t = score / 0.38;
+          c.setHSL(0.08 + t * 0.08, 0.9, 0.35 + t * 0.15);
+        } else if (score < 0.72) {
+          const t = (score - 0.38) / 0.34;
+          c.setHSL(0.16 + t * 0.16, 0.92, 0.45);
+        } else {
+          const t = (score - 0.72) / 0.28;
+          c.setHSL(0.32 + t * 0.12, 0.95, 0.48);
+        }
+
+        (tile.mesh.material as THREE.MeshBasicMaterial).color.copy(c);
+        (tile.mesh.material as THREE.MeshBasicMaterial).opacity = 0.45 + score * 0.35;
+      } else {
+        // Microclimate Humidity Calculation
+        const baseHum = currHumidity / 100;
+        let moistureInfluence = 0;
+        this.specimens.forEach((s) => {
+          const dx = tile.worldX - s.position[0];
+          const dz = tile.worldZ - s.position[2];
+          const distSq = dx * dx + dz * dz;
+          moistureInfluence += (s.moisture / 100) * Math.exp(-distSq / 0.38);
+        });
+
+        const edgeDist = Math.sqrt(tile.worldX * tile.worldX + tile.worldZ * tile.worldZ);
+        const condensationCoeff = Math.pow(edgeDist / 1.35, 2) * 0.28;
+
+        score = Math.min(1.0, Math.max(0.1, baseHum * 0.5 + moistureInfluence * 0.35 + condensationCoeff));
+
+        const c = new THREE.Color();
+        if (score < 0.4) {
+          const t = score / 0.4;
+          c.setHSL(0.05 + t * 0.1, 0.92, 0.48);
+        } else if (score < 0.75) {
+          const t = (score - 0.4) / 0.35;
+          c.setHSL(0.48 + t * 0.1, 0.88, 0.46);
+        } else {
+          const t = (score - 0.75) / 0.25;
+          c.setHSL(0.68 + t * 0.15, 0.92, 0.56);
+        }
+
+        (tile.mesh.material as THREE.MeshBasicMaterial).color.copy(c);
+        (tile.mesh.material as THREE.MeshBasicMaterial).opacity = 0.45 + score * 0.35;
+      }
+    });
+
+    if (this.heatmapWireframe) {
+      (this.heatmapWireframe.material as THREE.LineBasicMaterial).color.setHex(
+        isNutrients ? 0x34d399 : 0x38bdf8
+      );
+    }
   }
 
   public rebuildCreatures() {
@@ -282,6 +437,17 @@ export class TerrariumScene {
   public updateConfig(newConfig: Partial<TerrariumConfig>) {
     const prev = { ...this.currentConfig };
     this.currentConfig = { ...this.currentConfig, ...newConfig };
+
+    // Growth Heatmap Grid Overlay controls
+    if (newConfig.showHeatmap !== undefined) {
+      this.heatmapGroup.visible = newConfig.showHeatmap;
+      if (newConfig.showHeatmap) {
+        this.updateHeatmapValues();
+      }
+    }
+    if (newConfig.heatmapMetric !== undefined) {
+      this.updateHeatmapValues();
+    }
 
     // Weather change
     if (newConfig.weather && newConfig.weather !== prev.weather) {
@@ -461,6 +627,7 @@ export class TerrariumScene {
     }
 
     terrariumAudio.playInteractionTone(680);
+    this.updateHeatmapValues();
     this.onSelectPlantCallback?.(specimen);
   }
 
@@ -634,6 +801,11 @@ export class TerrariumScene {
     // 3. Lid Exploded / Open interpolation
     this.currentLidY = THREE.MathUtils.damp(this.currentLidY, this.targetLidY, 5.0, delta);
     this.vessel.lidGroup.position.y = this.currentLidY;
+
+    // 3b. Heatmap Grid Floating Hologram Animation
+    if (this.heatmapGroup && this.heatmapGroup.visible) {
+      this.heatmapGroup.position.y = 0.515 + Math.sin(elapsedTime * 2.2) * 0.003;
+    }
 
     // 4. Multi-harmonic procedural wind sway & organic breathing pulse on flora
     const windSpeed = this.currentConfig.weather === 'storm' ? 3.5 : 1.2;

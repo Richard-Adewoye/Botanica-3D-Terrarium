@@ -93,6 +93,8 @@ export interface TerrariumConfig {
   weather: WeatherType;
   humidity: number; // 0 to 100%
   showWeatherParticles: boolean; // toggle 3D rain/fog/spore particle system
+  showHeatmap?: boolean; // toggle 3D growth heatmap grid overlay
+  heatmapMetric?: 'nutrients' | 'humidity'; // heatmap mode: soil nutrients vs microclimate humidity
   geneticStabilityEnabled?: boolean; // when true, keeps traits constant during regeneration
   mutationRate?: number; // 0.0 to 1.0 mutation intensity
   lidOpenAmount: number; // 0 (closed) to 1 (fully lifted/exploded)

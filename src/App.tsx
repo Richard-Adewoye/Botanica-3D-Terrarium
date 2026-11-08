@@ -229,6 +229,24 @@ export default function App() {
           );
         }
 
+        if (newPartial.showHeatmap !== undefined && newPartial.showHeatmap !== prev.showHeatmap) {
+          addActivityLog(
+            'weather',
+            newPartial.showHeatmap ? '📊 3D Growth Heatmap Enabled' : '📊 3D Growth Heatmap Disabled',
+            newPartial.showHeatmap
+              ? `Spatial grid overlay activated displaying ${updated.heatmapMetric || 'nutrients'} telemetry.`
+              : 'Spatial grid overlay hidden.'
+          );
+        }
+
+        if (newPartial.heatmapMetric && newPartial.heatmapMetric !== prev.heatmapMetric) {
+          addActivityLog(
+            'weather',
+            `📊 Heatmap Metric Mode: ${newPartial.heatmapMetric === 'nutrients' ? 'Soil Nutrients' : 'Microclimate Humidity'}`,
+            `Grid telemetry switched to color-code ${newPartial.heatmapMetric === 'nutrients' ? 'soil nutrient density' : 'microclimate humidity levels'}.`
+          );
+        }
+
         return updated;
       });
 
