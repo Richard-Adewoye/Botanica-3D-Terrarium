@@ -13,7 +13,14 @@ import { TerrariumScene } from './three/TerrariumScene';
 import { INITIAL_SPECIMENS } from './data/initialFlora';
 import { INITIAL_CREATURES } from './data/initialCreatures';
 import { DEFAULT_CIRCADIAN_NODES } from './components/CircadianSchedulePanel';
-import { PlantSpecimen, CreatureSpecimen, TerrariumConfig, DailyTask } from './types/terrarium';
+import {
+  PlantSpecimen,
+  CreatureSpecimen,
+  TerrariumConfig,
+  DailyTask,
+  ActivityLogItem,
+  ActivityCategory,
+} from './types/terrarium';
 import { DEFAULT_SOUND_LAYERS, terrariumAudio } from './audio/proceduralAudio';
 import { Camera, Check } from 'lucide-react';
 
@@ -29,6 +36,18 @@ export default function App() {
   // Time-Lapse Studio state
   const [isTimeLapseActive, setIsTimeLapseActive] = useState<boolean>(false);
   const [timeLapseTargetPlantId, setTimeLapseTargetPlantId] = useState<string | null>(null);
+
+  // Ecosystem Activity Log state
+  const [activityLog, setActivityLog] = useState<ActivityLogItem[]>([
+    {
+      id: 'log-init',
+      timestamp: '12:00',
+      category: 'weather',
+      title: 'Ecosystem Telemetry Initialized',
+      description:
+        'Botanica 3D Terrarium ecosystem active. Monitoring microclimate conditions, fauna behavior, and flora genetics.',
+    },
+  ]);
 
   // Daily Tasks state
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([
@@ -74,6 +93,8 @@ export default function App() {
     weather: 'clear',
     humidity: 55,
     showWeatherParticles: true,
+    geneticStabilityEnabled: false,
+    mutationRate: 0.5,
     lidOpenAmount: 0,
     cameraPreset: 'default',
     autoRotate: false,
@@ -87,6 +108,31 @@ export default function App() {
     showCreatures: true,
     seed: 42,
   });
+
+  // Log Helper
+  const addActivityLog = useCallback(
+    (category: ActivityCategory, title: string, description: string) => {
+      const h = Math.floor(config.timeHours % 24);
+      const m = Math.floor((config.timeHours % 1) * 60);
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const timestamp = `${pad(h)}:${pad(m)}`;
+
+      const newItem: ActivityLogItem = {
+        id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        timestamp,
+        category,
+        title,
+        description,
+      };
+
+      setActivityLog((prev) => [newItem, ...prev].slice(0, 100));
+    },
+    [config.timeHours]
+  );
+
+  const handleClearActivityLog = useCallback(() => {
+    setActivityLog([]);
+  }, []);
 
   // Automated Circadian Schedule Engine
   useEffect(() => {
@@ -124,113 +170,152 @@ export default function App() {
     }
   }, [config.timeHours, config.autoCircadianSchedule, config.circadianNodes]);
 
-  const handleCompleteTask = useCallback((taskId: string) => {
-    setDailyTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== taskId || t.completed) return t;
+  const handleCompleteTask = useCallback(
+    (taskId: string) => {
+      setDailyTasks((prev) =>
+        prev.map((t) => {
+          if (t.id !== taskId || t.completed) return t;
 
-        // Play celebratory chime
-        terrariumAudio.playInteractionTone(880);
+          // Play celebratory chime
+          terrariumAudio.playInteractionTone(880);
 
-        // Apply task reward
-        if (taskId === 'task-hydrate') {
-          setSpecimens((currSpecimens) =>
-            currSpecimens.map((s) => ({
-              ...s,
-              health: Math.min(100, s.health + 10),
-              moisture: Math.min(100, s.moisture + 10),
-              growthHistory: [
-                ...(s.growthHistory || []),
-                {
-                  timestamp: 'Reward',
-                  health: Math.min(100, s.health + 10),
-                  moisture: Math.min(100, s.moisture + 10),
-                  event: '🏆 Daily Task: +10% Vitality',
-                },
-              ].slice(-12),
-            }))
+          // Apply task reward
+          if (taskId === 'task-hydrate') {
+            setSpecimens((currSpecimens) =>
+              currSpecimens.map((s) => ({
+                ...s,
+                health: Math.min(100, s.health + 10),
+                moisture: Math.min(100, s.moisture + 10),
+                growthHistory: [
+                  ...(s.growthHistory || []),
+                  {
+                    timestamp: 'Reward',
+                    health: Math.min(100, s.health + 10),
+                    moisture: Math.min(100, s.moisture + 10),
+                    event: '🏆 Daily Task: +10% Vitality',
+                  },
+                ].slice(-12),
+              }))
+            );
+            setSnapshotToast('🎉 Daily Task Completed: +10% Vitality Surge applied to all flora!');
+          } else if (taskId === 'task-weather') {
+            setConfig((c) => ({ ...c, bloomIntensity: 0.85, weather: 'spores' }));
+            setSnapshotToast('🎉 Daily Task Completed: Golden Spores & Radiant Bloom unlocked!');
+          } else if (taskId === 'task-timelapse') {
+            setConfig((c) => ({ ...c, bloomIntensity: 1.2 }));
+            setSnapshotToast('🎉 Daily Task Completed: Supernova Bloom Burst unlocked!');
+          }
+
+          addActivityLog('task', `Task Completed: ${t.title}`, `Earned reward: ${t.rewardText}`);
+
+          setTimeout(() => setSnapshotToast(null), 4200);
+          return { ...t, completed: true };
+        })
+      );
+    },
+    [addActivityLog]
+  );
+
+  const handleUpdateConfig = useCallback(
+    (newPartial: Partial<TerrariumConfig>) => {
+      setConfig((prev) => {
+        const updated = { ...prev, ...newPartial };
+
+        if (newPartial.weather && newPartial.weather !== prev.weather) {
+          addActivityLog(
+            'weather',
+            `Atmospheric Shift: ${newPartial.weather.toUpperCase()}`,
+            `Weather mode changed to ${newPartial.weather} with ${updated.humidity}% target humidity.`
           );
-          setSnapshotToast('🎉 Daily Task Completed: +10% Vitality Surge applied to all flora!');
-        } else if (taskId === 'task-weather') {
-          setConfig((c) => ({ ...c, bloomIntensity: 0.85, weather: 'spores' }));
-          setSnapshotToast('🎉 Daily Task Completed: Golden Spores & Radiant Bloom unlocked!');
-        } else if (taskId === 'task-timelapse') {
-          setConfig((c) => ({ ...c, bloomIntensity: 1.2 }));
-          setSnapshotToast('🎉 Daily Task Completed: Supernova Bloom Burst unlocked!');
         }
 
-        setTimeout(() => setSnapshotToast(null), 4200);
-        return { ...t, completed: true };
-      })
-    );
-  }, []);
-
-  const handleUpdateConfig = useCallback((newPartial: Partial<TerrariumConfig>) => {
-    setConfig((prev) => ({ ...prev, ...newPartial }));
-    if (newPartial.weather && newPartial.weather !== 'clear') {
-      handleCompleteTask('task-weather');
-    }
-  }, [handleCompleteTask]);
-
-  const handleSelectPlant = useCallback((specimen: PlantSpecimen | null) => {
-    setSelectedPlant(specimen);
-    if (specimen) {
-      setSelectedCreature(null);
-    }
-    handleUpdateConfig({
-      selectedPlantId: specimen ? specimen.id : null,
-      selectedCreatureId: null,
-    });
-  }, [handleUpdateConfig]);
-
-  const handleSelectCreature = useCallback((creature: CreatureSpecimen | null) => {
-    setSelectedCreature(creature);
-    if (creature) {
-      setSelectedPlant(null);
-    }
-    handleUpdateConfig({
-      selectedCreatureId: creature ? creature.id : null,
-      selectedPlantId: null,
-    });
-  }, [handleUpdateConfig]);
-
-  const handleHydratePlant = useCallback((plantId: string) => {
-    if (sceneRef.current) {
-      sceneRef.current.hydratePlant(plantId);
-    }
-    handleCompleteTask('task-hydrate');
-    const h = Math.floor(config.timeHours);
-    const m = Math.floor((config.timeHours % 1) * 60);
-    const timeLabel = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-
-    setSpecimens((prev) =>
-      prev.map((s) => {
-        if (s.id !== plantId) return s;
-        const newMoisture = Math.min(100, s.moisture + 25);
-        const newHealth = Math.min(100, s.health + 5);
-        const newHistory = [
-          ...(s.growthHistory || []),
-          {
-            timestamp: timeLabel,
-            health: newHealth,
-            moisture: newMoisture,
-            event: 'Hydrated (+25%)',
-          },
-        ].slice(-12);
-
-        const updated = {
-          ...s,
-          moisture: newMoisture,
-          health: newHealth,
-          growthHistory: newHistory,
-        };
-
-        // Also sync currently inspected plant modal
-        setSelectedPlant((curr) => (curr && curr.id === plantId ? updated : curr));
         return updated;
-      })
-    );
-  }, [config.timeHours, handleCompleteTask]);
+      });
+
+      if (newPartial.weather && newPartial.weather !== 'clear') {
+        handleCompleteTask('task-weather');
+      }
+    },
+    [handleCompleteTask, addActivityLog]
+  );
+
+  const handleSelectPlant = useCallback(
+    (specimen: PlantSpecimen | null) => {
+      setSelectedPlant(specimen);
+      if (specimen) {
+        setSelectedCreature(null);
+      }
+      handleUpdateConfig({
+        selectedPlantId: specimen ? specimen.id : null,
+        selectedCreatureId: null,
+      });
+    },
+    [handleUpdateConfig]
+  );
+
+  const handleSelectCreature = useCallback(
+    (creature: CreatureSpecimen | null) => {
+      setSelectedCreature(creature);
+      if (creature) {
+        setSelectedPlant(null);
+      }
+      handleUpdateConfig({
+        selectedCreatureId: creature ? creature.id : null,
+        selectedPlantId: null,
+      });
+    },
+    [handleUpdateConfig]
+  );
+
+  const handleHydratePlant = useCallback(
+    (plantId: string) => {
+      if (sceneRef.current) {
+        sceneRef.current.hydratePlant(plantId);
+      }
+      handleCompleteTask('task-hydrate');
+      const h = Math.floor(config.timeHours);
+      const m = Math.floor((config.timeHours % 1) * 60);
+      const timeLabel = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+      const targetPlant = specimens.find((s) => s.id === plantId);
+      if (targetPlant) {
+        addActivityLog(
+          'hydration',
+          `Hydrated ${targetPlant.name}`,
+          `Applied +25% moisture surge. Root hydration and tissue turgor restored.`
+        );
+      }
+
+      setSpecimens((prev) =>
+        prev.map((s) => {
+          if (s.id !== plantId) return s;
+          const newMoisture = Math.min(100, s.moisture + 25);
+          const newHealth = Math.min(100, s.health + 5);
+          const newHistory = [
+            ...(s.growthHistory || []),
+            {
+              timestamp: timeLabel,
+              health: newHealth,
+              moisture: newMoisture,
+              event: 'Hydrated (+25%)',
+            },
+          ].slice(-12);
+
+          const updated = {
+            ...s,
+            moisture: newMoisture,
+            health: newHealth,
+            growthHistory: newHistory,
+          };
+
+          // Also sync currently inspected plant modal
+          setSelectedPlant((curr) => (curr && curr.id === plantId ? updated : curr));
+          return updated;
+        })
+      );
+    },
+    [config.timeHours, specimens, handleCompleteTask, addActivityLog]
+  );
 
   const handleFocusPlant = useCallback((specimen: PlantSpecimen) => {
     if (sceneRef.current) {
@@ -238,16 +323,28 @@ export default function App() {
     }
   }, []);
 
-  const handleInteractCreature = useCallback((creatureId: string) => {
-    if (sceneRef.current) {
-      sceneRef.current.petCreature(creatureId);
-    }
-    setCreatures((prev) =>
-      prev.map((c) =>
-        c.id === creatureId ? { ...c, activityLevel: Math.min(100, c.activityLevel + 15) } : c
-      )
-    );
-  }, []);
+  const handleInteractCreature = useCallback(
+    (creatureId: string) => {
+      if (sceneRef.current) {
+        sceneRef.current.petCreature(creatureId);
+      }
+      const targetCreature = creatures.find((c) => c.id === creatureId);
+      if (targetCreature) {
+        addActivityLog(
+          'creature',
+          `Interacted with ${targetCreature.name}`,
+          `Stimulated creature motility and shell/carapace polish. Activity level +15%.`
+        );
+      }
+
+      setCreatures((prev) =>
+        prev.map((c) =>
+          c.id === creatureId ? { ...c, activityLevel: Math.min(100, c.activityLevel + 15) } : c
+        )
+      );
+    },
+    [creatures, addActivityLog]
+  );
 
   const handleFocusCreature = useCallback((creature: CreatureSpecimen) => {
     if (sceneRef.current) {
@@ -256,29 +353,65 @@ export default function App() {
   }, []);
 
   const handleRegenerateFlora = useCallback(() => {
+    const isStable = config.geneticStabilityEnabled ?? false;
+    const mutationRate = config.mutationRate ?? 0.5;
     const newSeed = Math.floor(Math.random() * 10000);
-    const randomized = INITIAL_SPECIMENS.map((s) => ({
-      ...s,
-      scale: s.scale * (0.9 + Math.random() * 0.2),
-      rotationY: Math.random() * Math.PI * 2,
-      moisture: Math.floor(55 + Math.random() * 40),
-      health: Math.floor(88 + Math.random() * 12),
-      growthHistory: s.growthHistory.map((pt) => ({
-        ...pt,
-        health: Math.min(100, Math.max(40, pt.health + Math.floor((Math.random() - 0.5) * 8))),
-        moisture: Math.min(100, Math.max(30, pt.moisture + Math.floor((Math.random() - 0.5) * 12))),
-      })),
-    }));
+    const colorPalette = ['#42f5b3', '#f542a1', '#3bf5c0', '#f5d342', '#a142f5'];
+
+    const randomized = INITIAL_SPECIMENS.map((s, idx) => {
+      let newScale = s.scale;
+      let newRotationY = s.rotationY;
+      let glowColor = s.glowColor;
+
+      if (!isStable) {
+        // Apply genetic mutation variations based on mutationRate
+        const scaleDelta = (Math.random() - 0.5) * mutationRate * 0.8;
+        newScale = Math.max(0.4, Math.min(2.2, s.scale * (1 + scaleDelta)));
+        newRotationY = Math.random() * Math.PI * 2;
+        glowColor = colorPalette[(idx + Math.floor(Math.random() * colorPalette.length)) % colorPalette.length];
+      }
+
+      return {
+        ...s,
+        scale: newScale,
+        rotationY: newRotationY,
+        glowColor,
+        moisture: Math.floor(55 + Math.random() * 40),
+        health: Math.floor(88 + Math.random() * 12),
+        growthHistory: s.growthHistory.map((pt) => ({
+          ...pt,
+          health: Math.min(100, Math.max(40, pt.health + Math.floor((Math.random() - 0.5) * 8))),
+          moisture: Math.min(100, Math.max(30, pt.moisture + Math.floor((Math.random() - 0.5) * 12))),
+        })),
+      };
+    });
+
     setSpecimens(randomized);
     setSelectedPlant((curr) => (curr ? randomized.find((r) => r.id === curr.id) || null : null));
     handleUpdateConfig({ seed: newSeed });
-  }, [handleUpdateConfig]);
 
-  const handleOpenTimeLapse = useCallback((plantId?: string) => {
-    setTimeLapseTargetPlantId(plantId || null);
-    setIsTimeLapseActive(true);
-    handleCompleteTask('task-timelapse');
-  }, [handleCompleteTask]);
+    addActivityLog(
+      'mutation',
+      isStable ? '🧬 Flora Re-Seeded (Genetic Stability Lock)' : '🧬 Flora Re-Seeded (Genetic Mutation Active)',
+      isStable
+        ? 'Terrarium flora regenerated health while keeping exact genetic scale, rotation, and bioluminescent colors constant.'
+        : `Re-seeded specimens with ${Math.round(mutationRate * 100)}% mutation rate variance in scale, bioluminescence, and orientation.`
+    );
+  }, [config.geneticStabilityEnabled, config.mutationRate, handleUpdateConfig, addActivityLog]);
+
+  const handleOpenTimeLapse = useCallback(
+    (plantId?: string) => {
+      setTimeLapseTargetPlantId(plantId || null);
+      setIsTimeLapseActive(true);
+      handleCompleteTask('task-timelapse');
+      addActivityLog(
+        'timelapse',
+        'Time-Lapse Studio Opened',
+        'Launched 4D simulated growth historical sequence playback.'
+      );
+    },
+    [handleCompleteTask, addActivityLog]
+  );
 
   const handleCloseTimeLapse = useCallback(() => {
     setIsTimeLapseActive(false);
@@ -288,6 +421,11 @@ export default function App() {
   const handleCaptureSnapshot = useCallback(() => {
     if (!sceneRef.current) return;
     handleCompleteTask('task-timelapse');
+    addActivityLog(
+      'timelapse',
+      'Viewport Snapshot Captured',
+      'Saved high-resolution 3D canvas render snapshot to device.'
+    );
 
     // 1. Play realistic mechanical camera shutter sound
     terrariumAudio.playShutterSound();
@@ -320,7 +458,7 @@ export default function App() {
     setTimeout(() => {
       setSnapshotToast(null);
     }, 3800);
-  }, []);
+  }, [handleCompleteTask, addActivityLog]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -428,6 +566,8 @@ export default function App() {
           creatures={creatures}
           dailyTasks={dailyTasks}
           onCompleteTask={handleCompleteTask}
+          activityLog={activityLog}
+          onClearActivityLog={handleClearActivityLog}
           onSelectPlant={handleSelectPlant}
           onSelectCreature={handleSelectCreature}
           onHydratePlant={handleHydratePlant}
@@ -439,3 +579,4 @@ export default function App() {
     </main>
   );
 }
+

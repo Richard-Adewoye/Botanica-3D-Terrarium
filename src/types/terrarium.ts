@@ -74,6 +74,16 @@ export interface CircadianNode {
   description: string;
 }
 
+export type ActivityCategory = 'weather' | 'mutation' | 'creature' | 'hydration' | 'timelapse' | 'task';
+
+export interface ActivityLogItem {
+  id: string;
+  timestamp: string; // e.g. "14:22"
+  category: ActivityCategory;
+  title: string;
+  description: string;
+}
+
 export interface TerrariumConfig {
   timeHours: number; // 0 to 24 (e.g. 12 = noon)
   autoCycleTime: boolean;
@@ -83,6 +93,8 @@ export interface TerrariumConfig {
   weather: WeatherType;
   humidity: number; // 0 to 100%
   showWeatherParticles: boolean; // toggle 3D rain/fog/spore particle system
+  geneticStabilityEnabled?: boolean; // when true, keeps traits constant during regeneration
+  mutationRate?: number; // 0.0 to 1.0 mutation intensity
   lidOpenAmount: number; // 0 (closed) to 1 (fully lifted/exploded)
   cameraPreset: CameraPreset;
   autoRotate: boolean;

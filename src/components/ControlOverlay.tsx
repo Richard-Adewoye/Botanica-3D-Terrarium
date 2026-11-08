@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MicroclimateForecastPanel } from './MicroclimateForecastPanel';
 import { DailyTasksWidget } from './DailyTasksWidget';
 import { CircadianSchedulePanel } from './CircadianSchedulePanel';
+import { ActivityLogPanel } from './ActivityLogPanel';
 import {
   TerrariumConfig,
   PlantSpecimen,
@@ -11,6 +12,7 @@ import {
   SoundLayerId,
   SoundLayersConfig,
   DailyTask,
+  ActivityLogItem,
 } from '../types/terrarium';
 import {
   Sun,
@@ -38,6 +40,8 @@ import {
   Volume1,
   Video,
   Trophy,
+  History,
+  Dna,
 } from 'lucide-react';
 import { DEFAULT_SOUND_LAYERS, terrariumAudio } from '../audio/proceduralAudio';
 
@@ -48,6 +52,8 @@ interface ControlOverlayProps {
   creatures: CreatureSpecimen[];
   dailyTasks?: DailyTask[];
   onCompleteTask?: (taskId: string) => void;
+  activityLog?: ActivityLogItem[];
+  onClearActivityLog?: () => void;
   onSelectPlant: (specimen: PlantSpecimen | null) => void;
   onSelectCreature: (creature: CreatureSpecimen | null) => void;
   onHydratePlant: (plantId: string) => void;
@@ -56,7 +62,7 @@ interface ControlOverlayProps {
   onOpenTimeLapse?: (plantId?: string) => void;
 }
 
-type TabType = 'tasks' | 'time' | 'weather' | 'flora' | 'camera' | 'audio';
+type TabType = 'tasks' | 'time' | 'weather' | 'flora' | 'camera' | 'audio' | 'log';
 
 export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   config,
@@ -65,6 +71,8 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   creatures,
   dailyTasks,
   onCompleteTask,
+  activityLog,
+  onClearActivityLog,
   onSelectPlant,
   onSelectCreature,
   onHydratePlant,
@@ -377,6 +385,21 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                 )}
                 <span>Ambient Audio & Layers</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('log')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg transition-colors cursor-pointer border-b-2 ${
+                  activeTab === 'log'
+                    ? 'border-purple-500 text-white bg-neutral-900 font-semibold'
+                    : 'border-transparent text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/50'
+                }`}
+              >
+                <History className="w-3.5 h-3.5 text-purple-400" />
+                <span>Activity Log</span>
+                <span className="text-[9px] font-mono text-purple-300 bg-purple-950 border border-purple-800/80 px-1.5 py-0.2 rounded-full font-semibold">
+                  {activityLog?.length || 0}
+                </span>
+              </button>
             </div>
 
             {/* Quick actions: Auto-rotate & Snapshot */}
@@ -608,12 +631,12 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                     </div>
 
                     {/* Bloom Presets */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {[
                         { label: 'Off', val: 0.0 },
-                        { label: 'Subtle', val: 0.25 },
-                        { label: 'Radiant', val: 0.5 },
-                        { label: 'Dreamy', val: 0.85 },
+                        { label: 'Standard', val: 0.3 },
+                        { label: 'Cinematic', val: 0.55 },
+                        { label: 'Ethereal', val: 0.85 },
                         { label: 'Supernova', val: 1.3 },
                       ].map((preset) => (
                         <button
@@ -729,7 +752,103 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                     <span>Re-Seed</span>
                   </button>
                 </div>
+
+                {/* Genetic Stability & Mutation Controls Card */}
+                <div className="p-2.5 rounded-xl border border-neutral-800 bg-neutral-950/80 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800/80 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 rounded-md bg-purple-950 border border-purple-800 text-purple-400 shrink-0">
+                        <Dna className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-neutral-100">Genetic Stability Lock:</span>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
+                            (config.geneticStabilityEnabled ?? false)
+                              ? 'bg-purple-950 border-purple-700 text-purple-300'
+                              : 'bg-emerald-950 border-emerald-700 text-emerald-300'
+                          }`}>
+                            {(config.geneticStabilityEnabled ?? false) ? 'Lock On' : 'Mutation Engine Active'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">
+                          {(config.geneticStabilityEnabled ?? false)
+                            ? 'Keeps specimen scale, rotation, and glow pigments constant during re-seeding.'
+                            : 'Generates exotic scale, rotation, and bioluminescent color mutations on re-seed.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => onUpdateConfig({ geneticStabilityEnabled: !(config.geneticStabilityEnabled ?? false) })}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        (config.geneticStabilityEnabled ?? false) ? 'bg-purple-500' : 'bg-neutral-700'
+                      }`}
+                      role="switch"
+                      aria-checked={config.geneticStabilityEnabled ?? false}
+                      title="Toggle Genetic Stability Lock"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                          (config.geneticStabilityEnabled ?? false) ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Mutation Rate Slider & Presets (Visible when Stability is OFF) */}
+                  {!(config.geneticStabilityEnabled ?? false) && (
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-neutral-300">Mutation Variance Intensity:</span>
+                        <div className="flex items-center gap-1">
+                          {[
+                            { label: 'Stable (0%)', rate: 0.0 },
+                            { label: 'Subtle (25%)', rate: 0.25 },
+                            { label: 'Exotic (75%)', rate: 0.75 },
+                            { label: 'Wild (100%)', rate: 1.0 },
+                          ].map((m) => (
+                            <button
+                              key={m.label}
+                              onClick={() => onUpdateConfig({ mutationRate: m.rate })}
+                              className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors cursor-pointer ${
+                                Math.abs((config.mutationRate ?? 0.5) - m.rate) < 0.05
+                                  ? 'bg-purple-950 border-purple-500 text-purple-300 font-semibold'
+                                  : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                              }`}
+                            >
+                              {m.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={config.mutationRate ?? 0.5}
+                          onChange={(e) => onUpdateConfig({ mutationRate: parseFloat(e.target.value) })}
+                          className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                        />
+                        <span className="text-xs font-mono text-purple-300 w-10 text-right font-semibold">
+                          {Math.round((config.mutationRate ?? 0.5) * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
+            )}
+
+            {/* 6. Activity Log Tab */}
+            {activeTab === 'log' && (
+              <ActivityLogPanel
+                activityLog={activityLog || []}
+                onClearLog={onClearActivityLog}
+              />
             )}
 
             {/* 4. Camera Views Tab */}
